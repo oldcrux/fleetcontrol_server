@@ -1,0 +1,39 @@
+[
+    {
+        "configKey": "rate_limiter_tcp",
+        "configValue": "30",
+        "comments": "value in secs. Default 30. System level config",
+        "createdBy": "admin"
+    },
+    {
+        "configKey": "rate_limiter_vehicle_off",
+        "configValue": "120",
+        "comments": "value in secs. Default 120. System level config",
+        "createdBy": "admin"
+    },
+    {
+        "configKey": "sse_data_push_interval",
+        "configValue": "10000",
+        "comments": "value in milli secs. Default 10 sec. Org level config",
+        "createdBy": "admin"
+    },
+    {
+        "configKey": "point_within_radius_accuracy_in_meters",
+        "configValue": "30",
+        "comments": "value in meters. Default 30. Org level config",
+        "createdBy": "admin"
+    },
+    {
+        "configKey": "questdb_geohash_precision",
+        "configValue": "30",
+        "comments": "value in meters. Default 30. System level config",
+        "createdBy": "admin"
+    },
+    {
+        "configKey": "geofence_schedule_arrival_window",
+        "configValue": "30",
+        "comments": "value in mins. Default 30. org level config",
+        "createdBy": "admin"
+    }
+    
+]
