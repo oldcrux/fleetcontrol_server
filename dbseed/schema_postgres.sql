@@ -71,7 +71,7 @@ CREATE TABLE "Vehicle" (
 	"secondaryPhoneNumber" varchar(20) NULL,
 	"vehicleGroup" varchar(100) NULL,
 	"geofenceLocationGroupName" varchar(100) NULL,
-	"isActive" BOOLEAN DEFAULT TRUE,
+	"isActive" varchar(1) NOT NULL DEFAULT '1',
 	"createdBy" varchar(20) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,

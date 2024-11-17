@@ -201,9 +201,9 @@ export const fetchDistinctGeofenceGroups = async (req: Request, res: Response) =
     const { orgId } = req.query;
     const [results] = await sequelize.query(`select distinct("geofenceLocationGroupName") from "GeofenceLocation" where "orgId"=? order by "geofenceLocationGroupName"`, {
         replacements: [orgId],
-        type: QueryTypes.SELECT,
+        type: QueryTypes.RAW,
     });
-    logDebug(`GeofenceController:fetchDistinctGeofenceGroups:response geofences=${JSON.stringify(results)} `);
+    logDebug(`GeofenceController:fetchDistinctGeofenceGroups:response geofences`, results);
     res.status(200).json(results);
 }
 

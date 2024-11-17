@@ -44,6 +44,10 @@ const Vehicle = sequelize.define('Vehicle', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  isActive: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   createdBy: {
     type: DataTypes.STRING,
     allowNull: false,
