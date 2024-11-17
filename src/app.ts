@@ -152,7 +152,7 @@ else {
       // const deviceId = `${socket.remoteAddress}:${socket.remotePort}`;  // Local testing
 
       let configValue = await fetchAppConfigByConfigKey('rate_limiter_tcp');
-        logDebug(`app.ts:tcp: rate_limiter_tcp config value fetched ${configValue}`, configValue);
+        logDebug(`app.ts:tcp: rate_limiter_tcp config value fetched ${configValue} secs`, configValue);
         if(!configValue)
             configValue = 30; // Setting 30 secs default
 

@@ -29,6 +29,13 @@ export const createVehicle = async (req: Request, res: Response) => {
         res.status(400).json({ error: 'incomplelete Vehicle payload' });
     }
 
+    var isActive = req.body.isActive;
+    let isActivedb = 1;
+    if(isActive === '1' || isActive.toLowerCase() === 'true'|| isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
+        isActivedb = 1;
+    if(isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
+        isActivedb = 0;
+
     // TODO add data validation validation.
     try {
         const newVehicle = await Vehicle.create({
@@ -42,7 +49,8 @@ export const createVehicle = async (req: Request, res: Response) => {
             secondaryPhoneNumber: req.body.secondaryPhoneNumber ? req.body.secondaryPhoneNumber : null,
             serialNumber: req.body.serialNumber.trim(),
             geofenceLocationGroupName: req.body.geofence ? req.body.geofence.trim() : null,
-            vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null
+            vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null,
+            isActive: isActivedb,
         });
         await redisPool.getConnection().hdel('vehicleCache', req.body.orgId); // Delete all the cache. The new vehicle will make it to the cache when reloaded.
         res.status(200).json(newVehicle);
@@ -57,6 +65,13 @@ export const createVehicle = async (req: Request, res: Response) => {
 export const updateVehicle = async (req: Request, res: Response) => {
     logDebug(`VehicleController:updateVehicle: payload- ${JSON.stringify(req.body)}`);
 
+    var isActive = req.body.isActive;
+    let isActivedb = 1;
+    if(isActive === '1' || isActive.toLowerCase() === 'true'|| isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
+        isActivedb = 1;
+    if(isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
+        isActivedb = 0;
+
     const result = await Vehicle.update({
         make: req.body.make,
         model: req.body.model,
@@ -66,7 +81,8 @@ export const updateVehicle = async (req: Request, res: Response) => {
         secondaryPhoneNumber: req.body.secondaryPhoneNumber ? req.body.secondaryPhoneNumber : null,
         serialNumber: req.body.serialNumber.trim(),
         geofenceLocationGroupName: req.body.geofenceLocationGroupName ? req.body.geofenceLocationGroupName.trim() : null,
-        vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null
+        vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null,
+        isActive: isActivedb,
     },
         { where: { vehicleNumber: req.body.vehicleNumber } });
     await redisPool.getConnection().hdel('vehicleCache', req.body.orgId);
@@ -338,9 +354,9 @@ export const fetchAllVehicleCount = async (orgId: string) => {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
-            type: QueryTypes.RAW
+            type: QueryTypes.SELECT
         });
-        // console.log(`VehicleController:fetchAllVehicleCount: count returned ${results.result}`);
+        logDebug(`VehicleController:fetchAllVehicleCount: count returned ${results.result}`);
         return results.result;
 
     }

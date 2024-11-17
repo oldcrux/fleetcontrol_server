@@ -13,6 +13,7 @@ import { logDebug, logError, logger, logInfo, logWarn } from "../util/Logger";
 import Vehicle from "../dbmodel/vehicle";
 import { redisPool } from "../util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./AppConfigController";
+import { isNullOrUndefinedOrNaN } from "../util/CommonUtil";
 dotenv.config();
 
 const questdbHost = process.env.QUEST_DB_HOST;
@@ -98,16 +99,19 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     
     const parsedMessage = parseMessage(data);
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: parsed Message:`, parsedMessage);
-    if(parsedMessage.ignition ==null || parsedMessage.odometer == null || parsedMessage.headingDirectionDegree == null){
+   
+    if(isNullOrUndefinedOrNaN(parsedMessage.ignition) 
+        || isNullOrUndefinedOrNaN(parsedMessage.odometer) 
+        || isNullOrUndefinedOrNaN(parsedMessage.headingDirectionDegree)){
         logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: Initial message with null values.  Will not insert into VehicleTelemetry table`, parsedMessage);
         return;
     }
 
     /**
      * ************* Rate limiter if Vehicle is off *************
-     * Implement another rate limiter here.  If the Vehicle ignition is off, stop inserting into VehicleTelemetry table
-     * Form a key - VehicleNumber_ignition0 and add to redis
-     * Before proceeding, check if the key in redis exists. If so stop inserting and expand the age of redis key.
+     * Implemented another rate limiter here.  If the Vehicle ignition is off, stop inserting into VehicleTelemetry table
+     * Form a key - VehicleNumber_0 and add to redis
+     * Before proceeding, check if the key in redis exists. If so, stop inserting and expand the age of redis key.
      */
     if(parsedMessage.ignition === 0){
         let configValue = await fetchAppConfigByConfigKey('rate_limiter_vehicle_off');
