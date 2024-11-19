@@ -12,52 +12,61 @@ import { vehicleTelemetryDataIngest,
     fetchAllVehiclesSSE,
     todaysTravelPath,
     todaysSpeed,
+    manualExportGeofenceTelemetryReport,
+    manualExporVehicleTelemetryReport,
     } from '../controller/VehicleTelemetryDataController';
 
 const router = Router();
 
 // Define routes
 
-// POST {url}/api/vehicleTelemetryData/create
+// POST {url}/node/api/vehicleTelemetryData/create
 router.post('/create', vehicleTelemetryDataIngest);
 
-// POST {url}/api/vehicleTelemetryData/fetchAll
+// POST {url}/node/api/vehicleTelemetryData/fetchAll
 router.post('/fetchAll', fetchAllVehicleTelemetryData);
 
-// POST {url}/api/vehicleTelemetryData/fetchRunningCount
+// POST {url}/node/api/vehicleTelemetryData/fetchRunningCount
 router.post('/fetchRunningCount', fetchRunningVehicleCount);
 
-// GET {url}/api/vehicleTelemetryData/fetchRunningCountSSE
+// GET {url}/node/api/vehicleTelemetryData/fetchRunningCountSSE
 router.get('/fetchRunningCountSSE', fetchRunningVehicleCountSSE);
 
-// GET {url}/api/vehicleTelemetryData/fetchAllVehiclesSSE
+// GET {url}/node/api/vehicleTelemetryData/fetchAllVehiclesSSE
 router.get('/fetchAllVehiclesSSE', fetchAllVehiclesSSE);
 
-// GET {url}/api/vehicleTelemetryData/geofence/report
+// GET {url}/node/api/vehicleTelemetryData/geofence/report
 router.get('/geofence/report', fetchGeofenceTelemetryReport);
 
-// GET {url}/api/vehicleTelemetryData/vehicle/report
+// GET {url}/node/api/vehicleTelemetryData/vehicle/report
 router.get('/vehicle/report', fetchVehicleTelemetryReport);
 
-// GET {url}/api/vehicleTelemetryData/report/name
+// GET {url}/node/api/vehicleTelemetryData/report/name
 router.get('/report/name', fetchVehicleTelemetryReportGroupByReportName);
 
-// GET {url}/api/vehicleTelemetryData/report/nameAndVehicle
+// GET {url}/node/api/vehicleTelemetryData/report/nameAndVehicle
 router.get('/report/nameAndVehicle', fetchVehicleTelemetryReportGroupByReportNameVehicleNumber);
 
-// GET {url}/api/vehicleTelemetryData/report/geofence/create
+// GET {url}/node/api/vehicleTelemetryData/report/geofence/create
 router.get('/report/geofence/create', createGeofenceTelemetryReport);
 
-// GET {url}/api/vehicleTelemetryData/report/vehicle/create
+// GET {url}/node/api/vehicleTelemetryData/report/vehicle/create
 router.get('/report/vehicle/create', createVehicleTelemetryReport);
 
-// GET {url}/api/vehicleTelemetryData/vehicle/travelpath
+// GET {url}/node/api/vehicleTelemetryData/vehicle/travelpath
 router.get('/vehicle/travelpath', todaysTravelPath);
 
-// GET {url}/api/vehicleTelemetryData/vehicle/speed
+// GET {url}/node/api/vehicleTelemetryData/vehicle/speed
 router.get('/vehicle/speed', todaysSpeed);
 
-// GET {url}/api/vehicleTelemetryData/report/trigger/all
+// GET {url}/node/api/vehicleTelemetryData/report/trigger/all
 // router.get('/report/trigger/all', triggerAllReportWrapper);
+
+// GET {url}/node/api/vehicleTelemetryData/manual/geofenceReport/export
+router.get('/manual/geofenceReport/export', manualExportGeofenceTelemetryReport);
+
+// GET {url}/node/api/vehicleTelemetryData/manual/vehicleReport/export
+router.get('/manual/vehicleReport/export', manualExporVehicleTelemetryReport);
+
 
 export default router;

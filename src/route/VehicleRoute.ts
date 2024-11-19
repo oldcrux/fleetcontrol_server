@@ -5,7 +5,8 @@ import {  createVehicle,
     deleteVehicle, 
     fetchAllVehicleCountByOrganization,
     fetchAllVehicleRunningVehicles,
-    fetchAllVehicleIdleVehicles, } from '../controller/VehicleController';
+    fetchAllVehicleIdleVehicles,
+    bulkCreateVehicle, } from '../controller/VehicleController';
 
 // import express, { Request, Response } from 'express';
 // const app = express();
@@ -18,6 +19,9 @@ const router = Router();
 
 // POST {url}/api/vehicle/create
 router.post('/create', createVehicle);
+
+// POST {url}/api/vehicle/bulkCreate
+router.post('/bulkCreate', bulkCreateVehicle);
 
 // POST {url}/api/vehicle/update
 router.post('/update', updateVehicle);
