@@ -39,6 +39,7 @@
         orgId SYMBOL capacity 256 CACHE,
         reportType SYMBOL capacity 256 CACHE,
         vehicleNumber SYMBOL capacity 256 CACHE,
+        owner VARCHAR,
         geofenceLocationGroupName VARCHAR,
         scheduleStartTime VARCHAR,
         actualStartTime VARCHAR,

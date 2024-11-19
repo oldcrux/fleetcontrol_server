@@ -10,6 +10,7 @@ import { Model, QueryTypes } from 'sequelize';
 import { fetchAllRunningVehicleNumbers } from './VehicleTelemetryDataController';
 import { redisPool } from '../util/RedisConnection';
 import { logDebug, logError, logger, logInfo } from '../util/Logger';
+import { isNullOrUndefinedOrNaN } from '../util/CommonUtil';
 
 const vehicleCollection = "vehicles";
 
@@ -31,10 +32,16 @@ export const createVehicle = async (req: Request, res: Response) => {
 
     var isActive = req.body.isActive;
     let isActivedb = 1;
-    if(isActive === '1' || isActive.toLowerCase() === 'true'|| isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
-        isActivedb = 1;
-    if(isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
-        isActivedb = 0;
+    if (!isNullOrUndefinedOrNaN(isActive)) {
+        console.log(`is Active`, isActive);
+        const normalizedActive = String(isActive).trim().toLowerCase();
+        if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
+            isActivedb = 1;
+        }
+        if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
+            isActivedb = 0;
+        }
+    }
 
     // TODO add data validation validation.
     try {
@@ -48,7 +55,7 @@ export const createVehicle = async (req: Request, res: Response) => {
             primaryPhoneNumber: req.body.primaryPhoneNumber.trim(),
             secondaryPhoneNumber: req.body.secondaryPhoneNumber ? req.body.secondaryPhoneNumber : null,
             serialNumber: req.body.serialNumber.trim(),
-            geofenceLocationGroupName: req.body.geofence ? req.body.geofence.trim() : null,
+            geofenceLocationGroupName: req.body.geofenceLocationGroupName ? req.body.geofenceLocationGroupName.trim() : null,
             vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null,
             isActive: isActivedb,
         });
@@ -56,20 +63,84 @@ export const createVehicle = async (req: Request, res: Response) => {
         res.status(200).json(newVehicle);
 
     } catch (error) {
-        console.error("Error adding vehicle: ", error);
+        logError("Error adding vehicle: ", error);
         res.status(400).json({ error: "Error adding vehicle: " + error });
     }
 };
 
+export const bulkCreateVehicle = async (req: Request, res: Response) => {
+    let createdVehicles: any[] = [];
+    let errorVehicle: any[] = [];
+    let errorData: any[] = [];
+
+    if (req.body.length > 0) {
+        const vehicles = req.body;
+        logInfo(`VehicleController: bulkCreateVehicle. Vehicles to create`, vehicles);
+
+        vehicles.forEach(async (vehicle: typeof Vehicle) => {
+            // for (const vehicle of vehicles) {
+            logInfo(`VehicleController: bulkCreateVehicle. persisting vehicle- `, vehicle);
+            try {
+                if (!vehicle.vehicleNumber
+                    || !vehicle.orgId
+                    || !vehicle.serialNumber
+                    || !vehicle.primaryPhoneNumber) {
+                    errorVehicle.push(`Incomplelete Vehicle payload ${vehicle.vehicleNumber}`);
+
+                    logInfo(`Vehicle data Error`);
+                    return;
+                }
+
+                var isActive = vehicle.isActive;
+                let isActivedb = 1;
+                if (!isNullOrUndefinedOrNaN(isActive)) {
+                    console.log(`is Active`, isActive);
+                    const normalizedActive = String(isActive).trim().toLowerCase();
+                    if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
+                        isActivedb = 1;
+                    }
+                    if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
+                        isActivedb = 0;
+                    }
+                }
+
+                const newVehicle = await Vehicle.create({
+                    vehicleNumber: vehicle.vehicleNumber.trim(),
+                    make: vehicle.make,
+                    model: vehicle.model,
+                    owner: vehicle.owner,
+                    orgId: vehicle.orgId,
+                    createdBy: vehicle.createdBy,
+                    primaryPhoneNumber: vehicle.primaryPhoneNumber.trim(),
+                    secondaryPhoneNumber: vehicle.secondaryPhoneNumber ? vehicle.secondaryPhoneNumber : null,
+                    serialNumber: vehicle.serialNumber.trim(),
+                    geofenceLocationGroupName: vehicle.geofenceLocationGroupName ? vehicle.geofenceLocationGroupName.trim() : null,
+                    vehicleGroup: vehicle.vehicleGroup ? vehicle.vehicleGroup : null,
+                    isActive: isActivedb,
+                });
+                createdVehicles.push(newVehicle);
+            }
+            catch (error) {
+                logError(`error creating Vehicle`, error);
+                errorData.push(error);
+            }
+        });
+        await redisPool.getConnection().hdel('vehicleCache', req.body.orgId);
+    }
+
+    logInfo(`VehicleController: bulkCreateVehicle.. final Data created`, createdVehicles, errorVehicle, errorData);
+    res.status(200).json(`${createdVehicles}, ${errorVehicle}, ${errorData}`);
+}
+
 
 export const updateVehicle = async (req: Request, res: Response) => {
-    logDebug(`VehicleController:updateVehicle: payload- ${JSON.stringify(req.body)}`);
+    logDebug(`VehicleController:updateVehicle: payload:`, req.body);
 
     var isActive = req.body.isActive;
     let isActivedb = 1;
-    if(isActive === '1' || isActive.toLowerCase() === 'true'|| isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
+    if (isActive === '1' || isActive.toLowerCase() === 'true' || isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
         isActivedb = 1;
-    if(isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
+    if (isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
         isActivedb = 0;
 
     const result = await Vehicle.update({
@@ -326,7 +397,7 @@ export const fetchVehicleAndGeoByOrganization = async (orgId: any) => {
 
 export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     const [allVehicle] = await sequelize.query(`SELECT "Vehicle"."vehicleNumber", 
-                "Vehicle"."geofenceLocationGroupName", 
+                "Vehicle"."geofenceLocationGroupName", "Vehicle"."owner",
                 COUNT("GeofenceLocation"."geofenceLocationGroupName") AS "geoLocationsCount"
             FROM "Vehicle", "GeofenceLocation"
             WHERE "Vehicle"."geofenceLocationGroupName" = "GeofenceLocation"."geofenceLocationGroupName"
@@ -415,7 +486,7 @@ export const deleteVehicle = async (req: Request, res: Response) => {
 
 //         // await connection.hdel('vehicleCache', orgId);
 //     } catch (error) {
-//         console.error("Error adding vehicle: ", error);
+//         logError("Error adding vehicle: ", error);
 //         res.status(400).json({ error: "Error deleting vehicle: " + error });
 //     }
 //     res.status(200).json("deleted Vehicles => " + deletedVehicles);

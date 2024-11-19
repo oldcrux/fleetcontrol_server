@@ -14,6 +14,8 @@ import Vehicle from "../dbmodel/vehicle";
 import { redisPool } from "../util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./AppConfigController";
 import { isNullOrUndefinedOrNaN } from "../util/CommonUtil";
+import { report } from "process";
+import { notifyViaEmail } from "./NotificationController";
 dotenv.config();
 
 const questdbHost = process.env.QUEST_DB_HOST;
@@ -1225,6 +1227,9 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
 
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
+
+    exportGeofenceTelemetryReport(reportName);
+
     logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution ended at: ${executionEndTime}. Total time taken: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processGeofenceTelemetryReport: All vehicles processed.');
 };
@@ -1302,6 +1307,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
             .symbol('orgId', orgId)
             .symbol('reportType', 'day')
             .symbol('vehicleNumber', vehicle.vehicleNumber)
+            .stringColumn('owner', vehicle.owner)
             .stringColumn('geofenceLocationGroupName', vehicle.geofenceLocationGroupName)
             .stringColumn('scheduleStartTime', '')
             .stringColumn('actualStartTime', vehicle.actualStartTime)
@@ -1313,6 +1319,9 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     await sender.flush();
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
+
+    exportVehicleTelemetryReport(reportName);
+
     logDebug(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution ended at: ${executionEndTime}. Total time taken: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processVehicleTelemetryReport2: All vehicles processed.');
 }
@@ -1540,4 +1549,78 @@ export const todaysSpeed = async (req: Request, res: Response) => {
     });
     logDebug(`VehicleTelemetryDataController:todaysSpeed: speed values:`, result);
     res.status(200).json(result);
+}
+
+
+const exportGeofenceTelemetryReport = async (reportName: any) => {
+    logDebug(`VehicleTelemetryDataController:exportGeofenceTelemetryReport: Exporting Geofence Telemetry report:`, reportName);
+    const geofenceTelemetryReport = await fetchGeofenceTelemetryReportByReportName(reportName);
+    if(geofenceTelemetryReport){
+        await notifyViaEmail(reportName, geofenceTelemetryReport);
+        logDebug(`VehicleTelemetryDataController:exportGeofenceTelemetryReport: Exported Geofence Telemetry report:`, reportName);
+    }
+}
+
+const fetchGeofenceTelemetryReportByReportName = async (reportName: any) => {
+
+    const query=`select * from GeofenceTelemetryReport where reportName='${reportName}'`;
+    const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
+    const json = await response.data;
+
+    const columns: string[] = json.columns.map((col: { name: any; }) => col.name);
+    const dataset: (string | number | null)[][] = json.dataset;
+
+    const geofenceTelemetryReport = dataset.map(row => {
+        const obj: { [key: string]: string | number | null } = {};
+        columns.forEach((col, index) => {
+            obj[col] = row[index];  // Map each column name to the corresponding value in the row
+        });
+        return obj;
+    });
+
+    logDebug(`VehicleTelemetryDataController:fetchGeofenceTelemetryReportByReportName: Geofence Telemetry data fetched:`, geofenceTelemetryReport);
+    return geofenceTelemetryReport;
+}
+
+const exportVehicleTelemetryReport = async (reportName: any) => {
+    logDebug(`VehicleTelemetryDataController:exportVehicleTelemetryReport: Exporting Vehicle Telemetry report:`, reportName);
+    const vehicleTelemetryReport = await fetchVehicleTelemetryReportByReportName(reportName);
+    if(vehicleTelemetryReport){
+        await notifyViaEmail(reportName, vehicleTelemetryReport);
+        logDebug(`VehicleTelemetryDataController:exportVehicleTelemetryReport: Exported Geofence Telemetry report:`, reportName);
+    }
+}
+
+const fetchVehicleTelemetryReportByReportName = async (reportName: any) => {
+    const query=`select * from VehicleTelemetryReport where reportName='${reportName}'`;
+    const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
+    const json = await response.data;
+
+    const columns: string[] = json.columns.map((col: { name: any; }) => col.name);
+    const dataset: (string | number | null)[][] = json.dataset;
+
+    const vehicleTelemetryReport = dataset.map(row => {
+        const obj: { [key: string]: string | number | null } = {};
+        columns.forEach((col, index) => {
+            obj[col] = row[index];  // Map each column name to the corresponding value in the row
+        });
+        return obj;
+    });
+
+    logDebug(`VehicleTelemetryDataController:exportVehicleTelemetryReport: Exported Geofence Telemetry data fetched:`, vehicleTelemetryReport);
+    return vehicleTelemetryReport;
+}
+
+export async function manualExportGeofenceTelemetryReport(req: Request, res: Response){
+    const reportName = req.query.reportName;
+
+    await exportGeofenceTelemetryReport(reportName);
+    res.status(200).json(`emailed successfully`);
+}
+
+export async function manualExporVehicleTelemetryReport(req: Request, res: Response){
+    const reportName = req.query.reportName;
+
+    await exportVehicleTelemetryReport(reportName);
+    res.status(200).json(`emailed successfully`);
 }
