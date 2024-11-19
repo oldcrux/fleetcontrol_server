@@ -75,11 +75,9 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
 
     if (req.body.length > 0) {
         const vehicles = req.body;
-        logInfo(`VehicleController: bulkCreateVehicle. Vehicles to create`, vehicles);
+        logDebug(`VehicleController: bulkCreateVehicle. Vehicles to create`, vehicles);
 
         vehicles.forEach(async (vehicle: typeof Vehicle) => {
-            // for (const vehicle of vehicles) {
-            logInfo(`VehicleController: bulkCreateVehicle. persisting vehicle- `, vehicle);
             try {
                 if (!vehicle.vehicleNumber
                     || !vehicle.orgId
@@ -87,14 +85,14 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                     || !vehicle.primaryPhoneNumber) {
                     errorVehicle.push(`Incomplelete Vehicle payload ${vehicle.vehicleNumber}`);
 
-                    logInfo(`Vehicle data Error`);
+                    logDebug(`VehicleController: bulkCreateVehicle. Vehicle data Error`);
                     return;
                 }
 
                 var isActive = vehicle.isActive;
                 let isActivedb = 1;
                 if (!isNullOrUndefinedOrNaN(isActive)) {
-                    console.log(`is Active`, isActive);
+                    
                     const normalizedActive = String(isActive).trim().toLowerCase();
                     if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
                         isActivedb = 1;
