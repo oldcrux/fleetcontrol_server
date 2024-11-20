@@ -688,7 +688,7 @@ const fetchAllVehiclesForSSE = async (orgId: any, viewport: any) => {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchAllVehiclesForSSE: vehicles appended for query`, vehicleNumbers);
 
-            const query = `SELECT vehicleNumber, latitude, longitude, ignition
+            const query = `SELECT vehicleNumber, latitude, longitude, ignition, speed
                                 from ${vehicleTelemetryTable} 
                                     where ignition!=null and vehicleNumber in (${vehicleNumbers}) ${viewportQuery}
                                         LATEST ON timestamp PARTITION BY vehicleNumber;`;

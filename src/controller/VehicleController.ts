@@ -162,6 +162,32 @@ export const getAllVehicles = async (req: Request, res: Response) => {
     res.status(400).json({ error: "not implemented " });
 }
 
+export const fetchVehicleByNumber = async (req: Request, res: Response) => {
+    logInfo(`vehicleController:fetchVehicleByNumber: Entering with ${JSON.stringify(req.query)}`, req.query);
+
+    const orgId = req.query.orgId;
+    const vehicleNumber = req.query.vehicleNumber;
+
+    if (orgId == null) {
+        res.status(400).json(`orgId is required`);
+    }
+    if (vehicleNumber == null) {
+        res.status(400).json(`vehicleNumber is required`);
+    }
+
+    const query = `SELECT * FROM "Vehicle" where "orgId" = ? and "vehicleNumber" = ?`;
+    
+    const [vehicle] = await sequelize.query(query, {
+        replacements: [orgId, vehicleNumber],
+        Model: Vehicle,
+        mapToModel: true,
+        type: QueryTypes.RAW
+    });
+
+    logInfo(`vehicleController:fetchVehicleByNumber: Fetched Vehicle`, vehicle);
+    res.status(200).json(vehicle);
+}
+
 export const fetchVehicles = async (req: Request, res: Response) => {
 
     // const { page, query, orgId } = req.query;

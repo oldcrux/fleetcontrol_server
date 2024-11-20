@@ -6,7 +6,8 @@ import {  createVehicle,
     fetchAllVehicleCountByOrganization,
     fetchAllVehicleRunningVehicles,
     fetchAllVehicleIdleVehicles,
-    bulkCreateVehicle, } from '../controller/VehicleController';
+    bulkCreateVehicle,
+    fetchVehicleByNumber, } from '../controller/VehicleController';
 
 // import express, { Request, Response } from 'express';
 // const app = express();
@@ -17,36 +18,39 @@ const router = Router();
 
 // Define routes
 
-// POST {url}/api/vehicle/create
+// POST {url}/node/api/vehicle/create
 router.post('/create', createVehicle);
 
-// POST {url}/api/vehicle/bulkCreate
+// POST {url}/node/api/vehicle/bulkCreate
 router.post('/bulkCreate', bulkCreateVehicle);
 
-// POST {url}/api/vehicle/update
+// POST {url}/node/api/vehicle/update
 router.post('/update', updateVehicle);
 
-// GET {url}/api/vehicle/search
+// GET {url}/node/api/vehicle/search
 router.get('/search', fetchVehicles);
 
-// GET {url}/api/vehicle/running/search
+// GET {url}/node/api/vehicle/search/vehicleNumber
+router.get('/search/vehicleNumber', fetchVehicleByNumber);
+
+// GET {url}/node/api/vehicle/running/search
 router.get('/running/search', fetchAllVehicleRunningVehicles);
 
-// GET {url}/api/vehicle/idle/search
+// GET {url}/node/api/vehicle/idle/search
 router.get('/idle/search', fetchAllVehicleIdleVehicles);
 
-// GET {url}/api/vehicle/all
+// GET {url}/node/api/vehicle/all
 // router.get('/all/:organization', getAllVehicles);
 
-// POST {url}/api/vehicle/delete/all
+// POST {url}/node/api/vehicle/delete/all
 // router.post('/delete/all', deleteAllVehicle);
 
-// POST {url}/api/vehicle/delete
+// POST {url}/node/api/vehicle/delete
 router.post('/delete', deleteVehicle);
 
 // router.get('/all/byOrganization', fetchAllVehicleByOrganization);
 
-// GET {url}/api/vehicle/count/:organization
+// GET {url}/node/api/vehicle/count/:organization
 router.get('/count/:organization', fetchAllVehicleCountByOrganization);
 
 export default router;
