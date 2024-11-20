@@ -12,6 +12,10 @@ const AppConfig = sequelize.define('AppConfig', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  orgId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   comments: {
     type: DataTypes.STRING,
     allowNull: true,
