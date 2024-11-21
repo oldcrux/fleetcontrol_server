@@ -14,6 +14,8 @@ import { vehicleTelemetryDataIngest,
     todaysSpeed,
     manualExportGeofenceTelemetryReport,
     manualExporVehicleTelemetryReport,
+    fetchLatestVehicleTelemetryReport,
+    fetchLatestGeofenceTelemetryReport,
     } from '../controller/VehicleTelemetryDataController';
 
 const router = Router();
@@ -40,6 +42,12 @@ router.get('/geofence/report', fetchGeofenceTelemetryReport);
 
 // GET {url}/node/api/vehicleTelemetryData/vehicle/report
 router.get('/vehicle/report', fetchVehicleTelemetryReport);
+
+// GET {url}/node/api/vehicleTelemetryData/vehicle/report/download
+router.get('/vehicle/report/download', fetchLatestVehicleTelemetryReport);
+
+// GET {url}/node/api/vehicleTelemetryData/geofence/report/download
+router.get('/geofence/report/download', fetchLatestGeofenceTelemetryReport);
 
 // GET {url}/node/api/vehicleTelemetryData/report/name
 router.get('/report/name', fetchVehicleTelemetryReportGroupByReportName);
