@@ -423,8 +423,9 @@ export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     const [allVehicle] = await sequelize.query(`SELECT "Vehicle"."vehicleNumber", 
                 "Vehicle"."geofenceLocationGroupName", "Vehicle"."owner",
                 COUNT("GeofenceLocation"."geofenceLocationGroupName") AS "geoLocationsCount"
-            FROM "Vehicle", "GeofenceLocation"
-            WHERE "Vehicle"."geofenceLocationGroupName" = "GeofenceLocation"."geofenceLocationGroupName"
+            FROM "Vehicle"
+            left join "GeofenceLocation"
+            on "Vehicle"."geofenceLocationGroupName" = "GeofenceLocation"."geofenceLocationGroupName"
             AND "Vehicle"."orgId" = ?
             GROUP BY "Vehicle"."vehicleNumber"`, {
         replacements: [orgId],
