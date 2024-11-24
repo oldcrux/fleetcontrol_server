@@ -48,3 +48,14 @@
         mileage DOUBLE,
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
+
+
+
+
+/*query to pull yesterday's TIFFA report*/
+select vehicleNumber, MAX(odometer) - MIN(odometer) AS mileage_in_meters, datediff('m', (max(timestamp)), min(timestamp) ) as runDuration_in_mins ,min(to_timezone(timestamp, 'Asia/Kolkata')) as startTime, max(to_timezone(timestamp, 'Asia/Kolkata')) as endTime
+from VehicleTelemetry where ignition=1 and
+ vehicleNumber in ('OD02CL2726','OD02CL2755','OD02CM4234','OD02CL2642','OD02CL2751','OD02CM4228','OD02CL2720','OD02CL2784','OD02CM4220','OD02CL2701','OD02CL2743','OD02CM2451','OD02CL2767','OD02CM2472','OD02CM2411','OD02CL2723','OD02CM4278','OD02CM2420','OD02CM2447')
+and to_timezone(timestamp, 'Asia/Kolkata') between  dateadd ('h', -24, date_trunc('day', to_timezone  (now(), 'Asia/Kolkata')))          
+                 and date_trunc('day', to_timezone  (now(), 'Asia/Kolkata')) 
+GROUP BY vehicleNumber ;
