@@ -105,15 +105,27 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     if (isNullOrUndefinedOrNaN(parsedMessage.ignition)
         || isNullOrUndefinedOrNaN(parsedMessage.odometer)
         || isNullOrUndefinedOrNaN(parsedMessage.headingDirectionDegree)) {
-        logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: Initial message with null values.  Will not insert into VehicleTelemetry table`, parsedMessage);
+        logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: Initial message with null values. Will not insert into VehicleTelemetry table`, parsedMessage);
         return;
     }
 
     //This will avoid the condition of vehicle being lost
     if (!parsedMessage.latitude
         || !parsedMessage.longitude) {
-        logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: lat/lng values are 0 or null.  Will not insert into VehicleTelemetry table`, parsedMessage);
-        return;
+        logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: lat/lng values are 0 or null. Resetting to last known location value and setting ignition to off `, parsedMessage);
+
+        const lastKnownLocation = await fetchLastKnownLocation(parsedMessage.serialNumber);
+        parsedMessage.ignition=0;
+        parsedMessage.latitude = lastKnownLocation.latitude !== null ? lastKnownLocation.latitude as number : 0;
+        parsedMessage.longitude = lastKnownLocation.longitude !== null ? lastKnownLocation.longitude as number : 0;
+
+        logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: new Parsed Message `, parsedMessage);
+
+        if (!parsedMessage.latitude
+            || !parsedMessage.longitude) {
+            logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: lat/lng values are still 0 or null. Will not insert into VehicleTelemetry table `, parsedMessage);
+            return;
+        }
     }
 
     /**
@@ -612,7 +624,7 @@ const fetchRunningVehicleCountForSSE = async (orgId: any) => {
     logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE: inside with orgId ${orgId}`, orgId);
 
     // steps to fetch currently in-flight vehicles correspond to the organization
-    // 1. get the list of vehicles of the organization from firestore
+    // 1. get the list of vehicles of the organization from postgresql
     // 2. query questDB with the list of vehicles with ignition=1 and get the count
 
     let result = 0;
@@ -1725,4 +1737,34 @@ export async function fetchLatestGeofenceTelemetryReport(req: Request, res: Resp
             res.status(200).json(vehicleTelemetryReport);
         }
     }   
+}
+
+
+async function fetchLastKnownLocation(serialNumber:string) {
+    logDebug(`VehicleTelemetryDataController:fetchLastKnownLocation: Fetching last known location of vehicle with serial number: ${serialNumber}`, serialNumber);
+
+    const query = `select vehicleNumber, latitude, longitude from ${vehicleTelemetryTable} where serialNumber='${serialNumber}' LATEST ON timestamp PARTITION BY vehicleNumber `;
+    const data = await queryQuestDB(query);
+
+    return data;
+}
+
+const queryQuestDB = async (query: any) => {
+    logDebug(`VehicleTelemetryDataController:queryQuestDB: executing query: ${query}`, query);
+    const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
+    const json = await response.data;
+
+    const columns: string[] = json.columns.map((col: { name: any; }) => col.name);
+    const dataset: (string | number | null)[][] = json.dataset;
+
+    const data = dataset.map(row => {
+        const obj: { [key: string]: string | number | null } = {};
+        columns.forEach((col, index) => {
+            obj[col] = row[index];
+        });
+        return obj;
+    });
+
+    logDebug(`VehicleTelemetryDataController:queryQuestDB: data returned:`, data[0]);
+    return data[0];
 }
