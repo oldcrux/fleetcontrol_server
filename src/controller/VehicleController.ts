@@ -92,7 +92,7 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                 var isActive = vehicle.isActive;
                 let isActivedb = 1;
                 if (!isNullOrUndefinedOrNaN(isActive)) {
-                    
+
                     const normalizedActive = String(isActive).trim().toLowerCase();
                     if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
                         isActivedb = 1;
@@ -176,7 +176,7 @@ export const fetchVehicleByNumber = async (req: Request, res: Response) => {
     }
 
     const query = `SELECT * FROM "Vehicle" where "orgId" = ? and "vehicleNumber" = ?`;
-    
+
     const [vehicle] = await sequelize.query(query, {
         replacements: [orgId, vehicleNumber],
         Model: Vehicle,
@@ -306,29 +306,52 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
     return vehicleNumber;
 }
 
-export const fetchAllVehicleByOrganization2 = async (orgId: string) => {
+export const fetchAllVehicleByOrganization2 = async (orgId: string, query: string) => {
     let allVehicle;
 
-    allVehicle = await redisPool.getConnection().hget('vehicleCache', orgId);
-    logDebug(`VehicleController:fetchAllVehicleByOrganization: vehicles fetched from redis cache:`, allVehicle);
-    if (allVehicle) {
-        allVehicle = JSON.parse(allVehicle);
+    logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with query- ${query}`, orgId, query);
+    let finalQuery;
+    if (query && typeof query === "string") {
+        // Split the input by commas, trim whitespace, and wrap each item with quotes
+        const items = query.split(",").map(query => `'${query.trim()}'`);
+        finalQuery = items.join(", ");
     }
-    else {
-        const [results] = await sequelize.query(`select "vehicleNumber" from "Vehicle" where "orgId"=?`, {
+
+    if (finalQuery) {
+        logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with finalQuery- ${finalQuery}`, orgId, finalQuery);
+        const sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "owner" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        const [results] = await sequelize.query(`${sqlString}`, {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
             type: QueryTypes.RAW
         });
         allVehicle = results;
-        await redisPool.getConnection().hset('vehicleCache', orgId, JSON.stringify(allVehicle));
-        await redisPool.getConnection().expire('vehicleCache', cacheTimeout);
-        logDebug(`VehicleController:fetchAllVehicleByOrganization: Added all vehicles to redis cache`);
-
+        logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned with query string- ${finalQuery}`, orgId, allVehicle);
+        return allVehicle;
     }
-    logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned`, orgId, allVehicle);
-    return allVehicle;
+    else {
+        allVehicle = await redisPool.getConnection().hget('vehicleCache', orgId);
+        logDebug(`VehicleController:fetchAllVehicleByOrganization: vehicles fetched from redis cache:`, allVehicle);
+        if (allVehicle) {
+            allVehicle = JSON.parse(allVehicle);
+        }
+        else {
+            const [results] = await sequelize.query(`select "vehicleNumber" from "Vehicle" where "orgId"=?`, {
+                replacements: [orgId],
+                Model: Vehicle,
+                mapToModel: true,
+                type: QueryTypes.RAW
+            });
+            allVehicle = results;
+            await redisPool.getConnection().hset('vehicleCache', orgId, JSON.stringify(allVehicle));
+            await redisPool.getConnection().expire('vehicleCache', cacheTimeout);
+            logDebug(`VehicleController:fetchAllVehicleByOrganization: Added all vehicles to redis cache`);
+
+        }
+        logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned`, orgId, allVehicle);
+        return allVehicle;
+    }
 }
 
 export const fetchVehiclesAndGeoByOrganization = async (orgId: any) => {
@@ -536,6 +559,7 @@ function convertToVehiclesApiResponse(vehicleJson: any, totalRowCount: any) {
 export const fetchAllVehicleRunningVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllVehicleRunningVehicles: Entering with request: ${JSON.stringify(req.query)}`, req.query);
     const orgId = req.query.orgId;
+    const queryString = '';
     if (orgId) {
         /**
          * load all the vehicles from mysql for the org. (cached)
@@ -543,7 +567,7 @@ export const fetchAllVehicleRunningVehicles = async (req: Request, res: Response
          * take this subset and look into mysql again with to find all details of running vehicle
          */
 
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
         const runningVehicleNumbers = await fetchAllRunningVehicleNumbers(allVehicles);
 
         let query;
@@ -570,6 +594,7 @@ export const fetchAllVehicleRunningVehicles = async (req: Request, res: Response
 export const fetchAllVehicleIdleVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllVehicleIdleVehicles: Entering with request:`, req.query);
     const orgId = req.query.orgId;
+    const queryString = '';
     if (orgId) {
         /**
          * load all the vehicles from mysql for the org. (cached)
@@ -577,7 +602,7 @@ export const fetchAllVehicleIdleVehicles = async (req: Request, res: Response) =
          * for idle vehicles, select with NOT IN
          */
 
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
         const runningVehicleNumbers = await fetchAllRunningVehicleNumbers(allVehicles);
 
         let query;
