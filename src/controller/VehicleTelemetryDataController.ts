@@ -626,10 +626,10 @@ const fetchRunningVehicleCountForSSE = async (orgId: any) => {
     // steps to fetch currently in-flight vehicles correspond to the organization
     // 1. get the list of vehicles of the organization from postgresql
     // 2. query questDB with the list of vehicles with ignition=1 and get the count
-
+    const queryString ='';
     let result = 0;
     try {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId); // #1
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, queryString); // #1
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE: vehicles appended for query`, vehicleNumbers);
@@ -665,23 +665,31 @@ const fetchRunningVehicleCountForSSE = async (orgId: any) => {
  */
 export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
 
-    const { orgId, encodedViewport } = req.query;
+    const { orgId, encodedViewport, query } = req.query;
     // console.log(`request: ${JSON.stringify(req.query)}`);
-    const viewport = JSON.parse(String(encodedViewport));
-    // console.log(`orgid and viewport: ${JSON.stringify(viewport)}`);
+    let viewport ='';
+    let searchParam = '';
+    if(query){
+        searchParam = query as string;
+    }
+    if(encodedViewport){
+        viewport = JSON.parse(String(encodedViewport));
+    }
+
+    logInfo(`orgid and viewport:`, searchParam);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    const result = await fetchAllVehiclesForSSE(orgId, viewport);
+    const result = await fetchAllVehiclesForSSE(orgId, searchParam, viewport);
     logDebug(`VehicleTelemetryDataController:fetchAllVehiclesSSE: data being sent first time:`, result);
     res.write(`data:${JSON.stringify(result)}\n\n`);
     // res.status(200).json(result);
 
     ////////////// logic to push the data every 5 sec Starts
     const interval = setInterval(async () => {
-        const result = await fetchAllVehiclesForSSE(orgId, viewport);
+        const result = await fetchAllVehiclesForSSE(orgId, searchParam, viewport);
         // console.log(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again ${result}`);
         res.write(`data:${JSON.stringify(result)}\n\n`);
         // res.status(200).json(result);
@@ -695,16 +703,16 @@ export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
 
 }
 
-const fetchAllVehiclesForSSE = async (orgId: any, viewport: any) => {
+const fetchAllVehiclesForSSE = async (orgId: any, query: string, viewport: any) => {
 
     // steps to fetch all vehicles with their location info and running status correspond to the organization
-    // 1. get the list of vehicles of the organization from mysql db / cache
+    // 1. get the list of vehicles of the organization from postgresql db / cache
     // 2. query questDB with the list of vehicles
 
     logDebug(`VehicleTelemetryDataController: fetchAllVehiclesForSSE: Entering with orgId: ${orgId} and viewport: ${JSON.stringify(viewport)}`);
     let results: any[] = [];
     try {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId); // #1
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, query); // #1
         let viewportQuery = '';
         // if(viewport.north && viewport.south && viewport.east && viewport.west){
         //     viewportQuery = `and latitude <= ${viewport.north} and latitude >= ${viewport.south} and longitude <= ${viewport.east} and longitude >= ${viewport.west}`;
