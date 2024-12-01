@@ -125,24 +125,35 @@ export const createGeofence = async (req: Request, res: Response) => {
 
 
 export const searchGeofence = async (req: Request, res: Response) => {
-    const { encodedViewport, query, orgId } = req.query;
+    const { encodedViewport, query, orgId, vehicles } = req.query;
     const viewport = JSON.parse(String(encodedViewport));
-    logDebug(`GeofenceController:searchGeofence: Entering with viewport: and orgId:`, viewport, orgId);
+    logDebug(`GeofenceController:searchGeofence: Entering with query: and orgId:`, query, orgId);
 
     let viewportQuery = '';
+    let subQuery = '';
     // if (viewport.north && viewport.south && viewport.east && viewport.west) {
     //     viewportQuery = `JSON_UNQUOTE(circle->'$.lat') BETWEEN ${viewport.south} AND ${viewport.north} AND JSON_UNQUOTE(circle->'$.lng') BETWEEN ${viewport.west} AND ${viewport.east}`;
     // }
 
     // NOTE - This if condition for query string will only work for 1 condition.
     let additionalCondition = '';
+    
     if (typeof query === 'string' && query?.includes(":")) {
         const parts = query.split(":");
         if (parts.length === 2) {
             additionalCondition = ` and ${parts[0]}='${parts[1]}'`;
         }
     }
-    const [results] = await sequelize.query(`select * from "GeofenceLocation" where "orgId"=? ${additionalCondition} ${viewportQuery}`, {
+    else if (vehicles && vehicles !=='null' && typeof vehicles === "string") { // NOTE - This if condition is for filtering vehicle specific geofences
+        // Split the input by commas, trim whitespace, and wrap each item with quotes
+        const vehicleList = vehicles.split(",").map(vehicles => `'${vehicles.trim()}'`);
+        const vehicleCondition = vehicleList.join(", ");
+        subQuery = `and "geofenceLocationGroupName" in (select DISTINCT("geofenceLocationGroupName") from "Vehicle" where "vehicleNumber" in (${vehicleCondition})) `;
+
+    }
+    const sqlString = `select * from "GeofenceLocation" where "orgId"=? ${additionalCondition} ${viewportQuery} ${subQuery}`;
+    logDebug(`GeofenceController:searchGeofence: query formed:`, sqlString);
+    const [results] = await sequelize.query(sqlString, {
         replacements: [orgId],
         type: QueryTypes.RAW,
     });
