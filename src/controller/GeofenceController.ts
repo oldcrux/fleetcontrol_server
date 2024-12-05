@@ -1,7 +1,7 @@
 import express, { Request, response, Response } from "express";
 import axios from 'axios';
 import sequelize from "../util/sequelizedb";
-import { QueryTypes } from "sequelize";
+import { QueryTypes, where } from "sequelize";
 import GeofenceLocation from "../dbmodel/geofencelocation";
 import { logDebug, logError, logInfo } from "../util/Logger";
 
@@ -53,7 +53,12 @@ export const createGeofence = async (req: Request, res: Response) => {
 
     if (req.body.length > 0) {
         const geofences = req.body;
-        geofences.forEach(async (geofence: typeof GeofenceLocation) => {
+        // geofences.forEach(async (geofence: typeof GeofenceLocation) => {
+        for(const geofence of geofences){
+
+            if(geofence.id){
+                continue; // Skip creation if the geofence already exists.
+            }
             const geofenceType = geofence.geofenceType;
             const orgId = geofence.orgId;
             const createdBy = geofence.createdBy;
@@ -118,16 +123,72 @@ export const createGeofence = async (req: Request, res: Response) => {
                 logError(`Error creating Geofence locations`, error);
                 res.status(400).json({ error: "Error creating Geofence locations " + error });
             }
-        });
+        };
 
     }
 };
 
 
+export const updateGeofence = async (req: Request, res: Response) => {
+    logDebug(`GeofenceController:updateGeofence:Entering`, req.body);
+
+    const geofence = req.body;
+    const id = geofence.id;
+    const geofenceType = geofence.geofenceType;
+    const orgId = geofence.orgId;
+    const createdBy = geofence.createdBy;
+    const tag = geofence.tag;
+    const geofenceLocationGroupName = geofence.geofenceLocationGroupName;
+    const scheduleArrival = geofence.scheduleArrival;
+    const haltDuration = geofence.haltDuration;
+    const geohash = '';
+
+    let radius = 0;
+    let center = '';
+    let polygon = '';
+    if ('circle' == geofenceType) {
+        radius = geofence.radius;
+        center = JSON.parse(geofence.center); // TODO might need to save separate latitude and longitude values
+    }
+    if ('polygon' == geofenceType) {
+        polygon = JSON.parse(geofence.polygon);
+    }
+    let centerPg= JSON.parse(geofence.center);
+
+    // TODO add validatation - 
+    // 1. See if the geofence is already present.  OR override the geofence if the same circle or polygon data is present.
+    try {
+        const updatedGeofence = await GeofenceLocation.update({
+            tag: tag,
+            geofenceLocationGroupName: geofenceLocationGroupName,
+            orgId: orgId,
+            geofenceType: geofenceType,
+            radius: radius,
+            center: JSON.stringify(center),
+            centerPoint: {
+                type: 'Point',
+                coordinates: [centerPg.lng, centerPg.lat]  // Note the lng, lat order for PostgreSQL
+            },
+            scheduleArrival: scheduleArrival,
+            haltDuration: haltDuration,
+            geohash: geohash,
+            //TODO call makeGeohash() and store a column
+            polygon: JSON.stringify(polygon),
+        },
+        { where: { id: id } });
+
+        logDebug(`GeofenceController:updateGeofence:Exiting.  Updated geofence locations successfully`);
+        res.sendStatus(200);
+    } catch (error) {
+        logError(`Error updating Geofence locations`, error);
+        res.status(400).json({ error: "Error updating Geofence locations " + error });
+    }
+};
+
 export const searchGeofence = async (req: Request, res: Response) => {
     const { encodedViewport, query, orgId, vehicles } = req.query;
-    const viewport = JSON.parse(String(encodedViewport));
-    logDebug(`GeofenceController:searchGeofence: Entering with query: and orgId:`, query, orgId);
+    // const viewport = JSON.parse(String(encodedViewport));
+    logDebug(`GeofenceController:searchGeofence: Entering with query: and orgId:`, req.query, orgId);
 
     let viewportQuery = '';
     let subQuery = '';
@@ -149,8 +210,11 @@ export const searchGeofence = async (req: Request, res: Response) => {
         const vehicleList = vehicles.split(",").map(vehicles => `'${vehicles.trim()}'`);
         const vehicleCondition = vehicleList.join(", ");
         subQuery = `and "geofenceLocationGroupName" in (select DISTINCT("geofenceLocationGroupName") from "Vehicle" where "vehicleNumber" in (${vehicleCondition})) `;
-
     }
+    else{
+        additionalCondition = 'and ' + Object.entries(req.query).map(([key, value]) => `"${key}"='${value}'`).join(' and ');
+    }
+    // TODO orgId being appended twice in query.
     const sqlString = `select * from "GeofenceLocation" where "orgId"=? ${additionalCondition} ${viewportQuery} ${subQuery}`;
     logDebug(`GeofenceController:searchGeofence: query formed:`, sqlString);
     const [results] = await sequelize.query(sqlString, {
@@ -168,6 +232,67 @@ export const searchGeofence = async (req: Request, res: Response) => {
 
     logDebug(`GeofenceController:searchGeofence:Exiting. Fetched Geofecences for the orgId: ${orgId}`, orgId, results);
     res.status(200).json(results);
+}
+
+/**
+ * This method is being used by geofence List Modal
+ */
+export const fetchGeofence = async (req: Request, res: Response) => {
+    const { encodedViewport, query, orgId, vehicles } = req.query;
+    logDebug(`GeofenceController:fetchGeofence: Entering with query: and orgId:`, req.query, orgId);
+
+    let whereClauses = '';
+
+    const start = parseInt(req.query.start as string) || 0;
+    const size = parseInt(req.query.size as string) || 0;
+    // const filters = JSON.parse(req.query.filters || '[]');
+    // const globalFilter = req.query.globalFilter || '';
+    // const sorting = JSON.parse(req.query.sorting || '[]');
+    logDebug(`GeofenceController:fetchGeofence: Entering with orgId: ${orgId}`, orgId);
+    // logDebug(`GeofenceController:fetchGeofence: request received`, req.query);
+
+    try{
+        const count = await fetchGeofenceCount(orgId);
+
+        let begin = 0;
+        let end = 0;
+
+        begin = count?.count - (start ?? 0);
+        end = begin - (size ?? 0);
+
+        if (begin < 0) {
+            begin = 0;
+        }
+        if (end < 0) {
+            end = 0;
+        }
+
+        const sqlString = `select * from "GeofenceLocation" where "orgId"='${orgId}' limit ${size} OFFSET ${start}  `;
+
+        logDebug(`GeofenceController:fetchGeofence: query formed:`, sqlString);
+        const [results] = await sequelize.query(sqlString, {
+            type: QueryTypes.RAW,
+        });
+
+        const finalResponse = convertToReportApiResponse(results, count?.count);
+
+        logDebug(`GeofenceController:fetchGeofence:Exiting. Fetched Geofecences for the orgId: ${orgId}`, orgId, finalResponse);
+        res.status(200).json(finalResponse);
+    }
+    catch(error){
+        res.status(400).json(error);
+    }
+}
+
+const fetchGeofenceCount = async (orgId: any) => {
+    const sqlString = `select count(*) from "GeofenceLocation" where "orgId"='${orgId}' `;
+    logDebug(`GeofenceController:fetchGeofenceCount: query formed:`, sqlString);
+    const [results] = await sequelize.query(sqlString, {
+        type: QueryTypes.RAW,
+    });
+
+    logDebug(`GeofenceController:fetchGeofenceCount:Exiting. Fetched Geofecences for the orgId: ${orgId}`, results[0]);
+    return results[0];
 }
 
 export const searchGeofenceLocationsByGroup = async (orgId: any, geofenceGroup: string) => {
@@ -195,16 +320,44 @@ export const searchGeofenceLocationsByGroup = async (orgId: any, geofenceGroup: 
 // }
 
 export const deleteGeofenceLocationByTag = async (req: Request, res: Response) => {
-    const { orgId, tag } = req.body;
-    logDebug(`GeofenceController:deleteGeofenceLocationByTag:Entering with tag=${tag} on orgId=${orgId}`);
+    const { orgId, tag, id } = req.body;
+    logDebug(`GeofenceController:deleteGeofenceLocationByTag:Entering with tag=${tag}, id=${id} on orgId=${orgId}`);
 
-    // const [results] = await mysqlConnection.query(`select * from GeofenceLocation where orgId='${orgId}'`);
+    let whereCondition = '';
+    if(tag){
+        whereCondition = whereCondition + ` and "tag"='${tag}'`;
+    }
+    if(id){
+        whereCondition = whereCondition + ` and "id"='${id}'`;
+    }
 
-    const [results] = await sequelize.query(`delete from "GeofenceLocation" where "orgId"=? and "tag"=?`, {
-        replacements: [orgId, tag],
+    let sqlString = `delete from "GeofenceLocation" where "orgId"=? `;
+    if(whereCondition){
+        sqlString = sqlString + ` ${whereCondition}`;
+    }
+    logInfo(`GeofenceController:deleteGeofenceLocationByTag: sql String`, sqlString);
+
+    const [results] = await sequelize.query(sqlString, {
+        replacements: [orgId],
+        type: QueryTypes.DELETE,
+    });
+
+    logInfo(`GeofenceController:deleteGeofenceLocationByTag:Exiting. Deleted tag=${tag} on orgId=${orgId}`);
+    res.status(200).json(results);
+}
+
+/**
+ * Method being used by geofence list screen.
+ */
+export const deleteGeofenceLocationById = async (req: Request, res: Response) => {
+    const { orgId, id } = req.body;
+    logDebug(`GeofenceController:deleteGeofenceLocationByTag:Entering with id=${id} on orgId=${orgId}`);
+
+    const [results] = await sequelize.query(`delete from "GeofenceLocation" where "orgId"=? and "id"=?`, {
+        replacements: [orgId, id],
         type: QueryTypes.SELECT,
     });
-    logInfo(`GeofenceController:deleteGeofenceLocationByTag:Exiting. Deleted tag=${tag} on orgId=${orgId}`);
+    logInfo(`GeofenceController:deleteGeofenceLocationByTag:Exiting. Deleted id=${id} on orgId=${orgId}`);
     res.status(200).json(results);
 }
 
@@ -226,4 +379,21 @@ export const searchMinMaxScheduleArrivalTimeByGroup = async (orgId: any, geofenc
     });
     logInfo(`GeofenceController:searchMinMaxScheduleArrivalTimeByGroup: Response, geofenceLocationGroupName, minArrivalTime, maxArrivalTime`, results[0]);
     return results[0];
+}
+
+
+/** This conversion of data format is done to support infinite scroll on the UI - react-material-table */
+function convertToReportApiResponse(reportJson: any, totalCountJson: any) {
+    // console.log(`convertToReportApiResponse: total count: ${JSON.stringify(totalCountJson)} json: ${JSON.stringify(reportJson)}`);
+    const totalCountArray = totalCountJson;
+    const reportArray = reportJson;
+
+    const totalRowCount = totalCountArray || 0;
+
+    return {
+        data: reportArray,
+        meta: {
+            totalRowCount,
+        },
+    };
 }
