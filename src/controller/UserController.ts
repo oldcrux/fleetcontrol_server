@@ -81,6 +81,28 @@ export const searchUserByUserId = async (req: Request, res: Response) => {
     res.status(200).json(user);
 }
 
+export const updatePassword = async (req: Request, res: Response) => {
+    
+    if (!req.body.userId
+        || !req.body.orgId
+        || !req.body.password) {
+        res.status(400).json({ error: 'incomplelete User payload' });
+    }
+    const orgId = req.body.orgId;
+    const userId = req.body.userId;
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
+    const sqlString = `update "Users" set "password"='${hashedPassword}' where "orgId"='${orgId}' and "userId"='${userId}' `;
+    const [user] = await sequelize.query(sqlString, {
+        Model: User,
+        mapToModel: true,
+        type: QueryTypes.UPDATE
+    });
+
+    logDebug(`UserController:searchUserByUserId: User updated:`, user); //TODO user object is not being returned by sequelize
+    res.status(200).json(user);
+}
+
 export const deleteUser = async (req: Request, res: Response) => {
     res.status(400).json({ error: "not implemented " });
 }
