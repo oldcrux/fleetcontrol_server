@@ -117,14 +117,13 @@ export const createGeofence = async (req: Request, res: Response) => {
                     polygon: JSON.stringify(polygon),
                 });
 
-                logDebug(`GeofenceController:createGeofence:Exiting.  Created geofence locations successfully`);
-                res.sendStatus(200);
             } catch (error) {
-                logError(`Error creating Geofence locations`, error);
+                logError(`Error creating Geofence locations`, error, geofence);
                 res.status(400).json({ error: "Error creating Geofence locations " + error });
             }
         };
-
+        logDebug(`GeofenceController:createGeofence:Exiting. Created geofence locations successfully`);
+        res.sendStatus(200);
     }
 };
 
@@ -214,7 +213,7 @@ export const searchGeofence = async (req: Request, res: Response) => {
     else{
         additionalCondition = 'and ' + Object.entries(req.query).map(([key, value]) => `"${key}"='${value}'`).join(' and ');
     }
-    // TODO orgId being appended twice in query.
+    // TODO orgId being appended twice in query. Check orgId and error if missing.
     const sqlString = `select * from "GeofenceLocation" where "orgId"=? ${additionalCondition} ${viewportQuery} ${subQuery}`;
     logDebug(`GeofenceController:searchGeofence: query formed:`, sqlString);
     const [results] = await sequelize.query(sqlString, {
