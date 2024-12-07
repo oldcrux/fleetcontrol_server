@@ -4,10 +4,16 @@ import {  createVehicle,
     fetchVehicles, 
     deleteVehicle, 
     fetchAllVehicleCountByOrganization,
-    fetchAllVehicleRunningVehicles,
-    fetchAllVehicleIdleVehicles,
+    // fetchAllVehicleRunningVehicles,
     bulkCreateVehicle,
-    fetchVehicleByNumber, } from '../controller/VehicleController';
+    fetchVehicleByNumber,
+    fetchAllVehiclesWithIgnitionOff,
+    fetchAllIdleVehicles,
+    fetchAllRunningVehicles,
+    fetchAllSpeedingVehicles,
+    fetchGhostVehicles,
+    // fetchIdleVehicles, 
+} from '../controller/VehicleController';
 
 // import express, { Request, Response } from 'express';
 // const app = express();
@@ -34,10 +40,22 @@ router.get('/search', fetchVehicles);
 router.get('/search/vehicleNumber', fetchVehicleByNumber);
 
 // GET {url}/node/api/vehicle/running/search
-router.get('/running/search', fetchAllVehicleRunningVehicles);
+// router.get('/running/search', fetchAllVehicleRunningVehicles);
 
-// GET {url}/node/api/vehicle/idle/search
-router.get('/idle/search', fetchAllVehicleIdleVehicles);
+// GET {url}/node/api/vehicle/ghost
+router.get('/ghost', fetchGhostVehicles);
+
+// GET {url}/node/api/vehicle/ignition/off
+router.get('/ignition/off', fetchAllVehiclesWithIgnitionOff);
+
+// GET {url}/node/api/vehicle/idle
+router.get('/idle', fetchAllIdleVehicles);
+
+// GET {url}/node/api/vehicle/running
+router.get('/running', fetchAllRunningVehicles);
+
+// GET {url}/node/api/vehicle/speeding
+router.get('/speeding', fetchAllSpeedingVehicles);
 
 // GET {url}/node/api/vehicle/all
 // router.get('/all/:organization', getAllVehicles);
