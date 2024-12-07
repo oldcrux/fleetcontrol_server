@@ -115,7 +115,7 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
         logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: lat/lng values are 0 or null. Resetting to last known location value and setting ignition to off `, parsedMessage);
 
         const lastKnownLocation = await fetchLastKnownLocation(parsedMessage.serialNumber);
-        parsedMessage.ignition=0;
+        parsedMessage.ignition = 0;
         parsedMessage.latitude = lastKnownLocation.latitude !== null ? lastKnownLocation.latitude as number : 0;
         parsedMessage.longitude = lastKnownLocation.longitude !== null ? lastKnownLocation.longitude as number : 0;
 
@@ -365,7 +365,7 @@ export const fetchAllVehicleTelemetryData = async (req: Request, res: Response) 
 export const fetchVehicleTelemetryDataByVehicleNumberInTimeWindow = async (vehicleNumber: string, minScheduledArrival: any, maxScheduleArrival: any) => {
     let vehicletelemetry: any[] = [];
     if (minScheduledArrival && maxScheduleArrival) {
-        logInfo(`VehicleTelemetryDataController:fetchVehicleTelemetryDataByVehicleNumberInTimeWindow: Entering with Vehicle, minScheduledArrival, maxScheduledArrival:`, vehicleNumber, minScheduledArrival, maxScheduleArrival);
+        logDebug(`VehicleTelemetryDataController:fetchVehicleTelemetryDataByVehicleNumberInTimeWindow: Entering with Vehicle, minScheduledArrival, maxScheduledArrival:`, vehicleNumber, minScheduledArrival, maxScheduleArrival);
         const minScheduledArrivalMinute = timeToMinutes(minScheduledArrival);
         const maxScheduleArrivalMinute = timeToMinutes(maxScheduleArrival);
 
@@ -375,7 +375,7 @@ export const fetchVehicleTelemetryDataByVehicleNumberInTimeWindow = async (vehic
             and to_timezone(timestamp, 'Asia/Kolkata') between dateadd ('m', ${minScheduledArrivalMinute - Number(scheduleArrivalWindow)}, date_trunc('day', to_timezone  (now(), 'Asia/Kolkata'))) and dateadd ('m', ${maxScheduleArrivalMinute + Number(scheduleArrivalWindow)}, date_trunc('day', to_timezone  (now(), 'Asia/Kolkata')))
             and ${questDBTimeRangeToday}`;
 
-        logInfo(`VehicleTelemetryDataController:fetchVehicleTelemetryDataByVehicleNumberInTimeWindow: query:`, query);
+        logDebug(`VehicleTelemetryDataController:fetchVehicleTelemetryDataByVehicleNumberInTimeWindow: query:`, query);
         try {
             const response = await axios.get(
                 `http://${questdbHost}/exec?query=${encodeURIComponent(query)}`,
@@ -626,37 +626,190 @@ const fetchRunningVehicleCountForSSE = async (orgId: any) => {
     // steps to fetch currently in-flight vehicles correspond to the organization
     // 1. get the list of vehicles of the organization from postgresql
     // 2. query questDB with the list of vehicles with ignition=1 and get the count
-    const queryString ='';
-    let result = 0;
+    const queryString = '';
+    let result;
     try {
         const allVehicles = await fetchAllVehicleByOrganization2(orgId, queryString); // #1
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE: vehicles appended for query`, vehicleNumbers);
 
-            const query = `select * from ( SELECT vehicleNumber, ignition
-                            from ${vehicleTelemetryTable} 
-                                where vehicleNumber in (${vehicleNumbers}) 
-                                    LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1`;
+            // const query = `select * from ( SELECT vehicleNumber, ignition
+            //                 from ${vehicleTelemetryTable} 
+            //                     where vehicleNumber in (${vehicleNumbers}) 
+            //                         LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1`;
 
-            const response = await axios.get(
-                `http://${questdbHost}/exec?query=${encodeURIComponent(query)}`,
-            );
-            const json = await response.data;
+            // const response = await axios.get(
+            //     `http://${questdbHost}/exec?query=${encodeURIComponent(query)}`,
+            // );
+            // const json = await response.data;
+            // result = json.dataset.reduce((accumulator: number, currentValue: number[]) => {
+            //     if (currentValue[1] === 1) {
+            //         return accumulator + 1;  // Increment the sum if the second value is 1
+            //     }
+            //     return accumulator; // Otherwise, return the accumulator unchanged
+            // }, 0);
 
-            // results = json.dataset[0][0];
-            result = json.dataset.reduce((accumulator: number, currentValue: number[]) => {
-                if (currentValue[1] === 1) {
-                    return accumulator + 1;  // Increment the sum if the second value is 1
-                }
-                return accumulator; // Otherwise, return the accumulator unchanged
-            }, 0);
+            /** Off vehicles */
+            const ignitionOffVehiclesCount = await ignitionOffVehicleCount(vehicleNumbers);
+
+            /** IDLE vehicles */
+            const idleVehiclesCount = await idleVehicleCount(vehicleNumbers);
+
+            /** Running vehicles speed >0 and  <=45 */
+            const runningVehiclesCount = await runningVehicleCount(vehicleNumbers);
+
+            /** Speeding vehicles speed > 45 */
+            const speedingVehiclesCount = await speedingVehicleCount(vehicleNumbers);
+
+            result = {
+                totalIgnitionOnOffCount: ignitionOffVehiclesCount + idleVehiclesCount + runningVehiclesCount + speedingVehiclesCount,
+                ignitionOffVehiclesCount: ignitionOffVehiclesCount,
+                idleVehiclesCount: idleVehiclesCount,
+                runningVehiclesCount: runningVehiclesCount,
+                speedingVehiclesCount: speedingVehiclesCount
+            };
         }
     } catch (error) {
         logger.error(error);
     }
-    logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE. Running vehicle count from questDb. ${JSON.stringify(result)}`);
+    logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE. vehicle count statuses from questDb. ${JSON.stringify(result)}`,);
     return result;
+}
+
+const ignitionOffVehicleCount = async (vehicleNumbers: string) => {
+    const idleVehicleSqlString = `select count(*) from ( SELECT vehicleNumber, ignition, speed
+    from ${vehicleTelemetryTable} 
+    where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=0`;
+
+    const ignitionOffVehicleResponse = await axios.get(
+        `http://${questdbHost}/exec?query=${encodeURIComponent(idleVehicleSqlString)}`,
+    );
+    const ignitionOffVehiclesCount = await ignitionOffVehicleResponse.data.dataset[0][0];
+
+    // const idleVehiclesCount = idleVehicleJson.dataset[0][0];
+    // const idleVehicles = idleVehicleJson.dataset.reduce((accumulator: number, currentValue: number[]) => {
+    // if (currentValue[1] === 1) {
+    //     return accumulator + 1;  // Increment the sum if the second value is 1
+    // }
+    // return accumulator; // Otherwise, return the accumulator unchanged
+    // }, 0);
+    return ignitionOffVehiclesCount;
+}
+
+export const fetchVehiclesWithIgnitionOff = async (vehicleNumbers: string) => {
+    logDebug(`VehicleTelemetryDataController:fetchAllVehiclesWithIgnitionOff: Entering`);
+    const query = `select * from ( SELECT vehicleNumber, ignition, speed, timestamp from ${vehicleTelemetryTable}
+            where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=0 ` ;
+
+    const data = await queryQuestDB(query);
+    logDebug(`VehicleTelemetryDataController:fetchVehiclesWithIgnitionOff. Fetched vehicles with ignition off from questDb. ${JSON.stringify(data)}`, data);
+    return data;
+}
+
+/** Idle Vehicles: Ignition=1 && Speed=0 */
+export const idleVehicleCount = async (vehicleNumbers: string) => {
+    const idleVehicleSqlString = `select count(*) from ( SELECT vehicleNumber, ignition, speed
+    from ${vehicleTelemetryTable} 
+    where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed=0`;
+
+    const idleVehicleResponse = await axios.get(
+        `http://${questdbHost}/exec?query=${encodeURIComponent(idleVehicleSqlString)}`,
+    );
+    const idleVehiclesCount = await idleVehicleResponse.data.dataset[0][0];
+
+
+    // const idleVehiclesCount = idleVehicleJson.dataset[0][0];
+    // const idleVehicles = idleVehicleJson.dataset.reduce((accumulator: number, currentValue: number[]) => {
+    // if (currentValue[1] === 1) {
+    //     return accumulator + 1;  // Increment the sum if the second value is 1
+    // }
+    // return accumulator; // Otherwise, return the accumulator unchanged
+    // }, 0);
+    return idleVehiclesCount;
+}
+
+/** Idle Vehicles: Ignition=1 && Speed=0 */
+export const fetchIdleVehicles = async (vehicleNumbers: string) => {
+    logDebug(`VehicleTelemetryDataController:fetchAllVehiclesWithIgnitionOff: Entering`);
+    const query = `select * from ( SELECT vehicleNumber, ignition, speed, timestamp from ${vehicleTelemetryTable}
+            where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed=0 ` ;
+
+    const data = await queryQuestDB(query);
+    logDebug(`VehicleTelemetryDataController:fetchIdleVehicle. Fetched Idle vehicles from questDb. ${JSON.stringify(data)}`, data);
+    return data;
+}
+
+/** Running Vehicles: ignition=1 and speed>0 and speed <= 45 */
+export const runningVehicleCount = async (vehicleNumbers: string) => {
+    const runningVehicleSqlString = `select count(*) from ( SELECT vehicleNumber, ignition, speed
+    from ${vehicleTelemetryTable} 
+    where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed>0 and speed <= 45`; // TODO remove overspeed hardcoding
+
+    const runningVehicleResponse = await axios.get(
+        `http://${questdbHost}/exec?query=${encodeURIComponent(runningVehicleSqlString)}`,
+    );
+    const runningVehiclesCount = await runningVehicleResponse.data.dataset[0][0];
+
+    // const runningVehiclesCount = runningVehicleJson.dataset[0][0];
+    // const runningVehicles = idleVehicleJson.dataset.reduce((accumulator: number, currentValue: number[]) => {
+    // if (currentValue[1] === 1) {
+    //     return accumulator + 1;  // Increment the sum if the second value is 1
+    // }
+    // return accumulator; // Otherwise, return the accumulator unchanged
+    // }, 0);
+    return runningVehiclesCount;
+}
+
+/** Running Vehicles: ignition=1 and speed>0 and speed <= 45 */
+export const fetchRunningVehicles = async (vehicleNumbers: string) => {
+    logDebug(`VehicleTelemetryDataController:fetchAllVehiclesWithIgnitionOff: Entering`);
+    const query = `select * from ( SELECT vehicleNumber, ignition, speed, timestamp from ${vehicleTelemetryTable}
+            where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed>0 and speed <= 45 ` ;
+
+    const data = await queryQuestDB(query);
+    logDebug(`VehicleTelemetryDataController:fetchIdleVehicle. Fetched Idle vehicles from questDb. ${JSON.stringify(data)}`, data);
+    return data;
+}
+
+/** Speeding Vehicles: ignition=1 and speed> 45 */
+export const speedingVehicleCount = async (vehicleNumbers: string) => {
+    const speedingVehicleSqlString = `select count(*) from ( SELECT vehicleNumber, ignition, speed
+    from ${vehicleTelemetryTable} 
+    where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed> 45`; // TODO remove overspeed hardcoding
+
+    const speedingVehicleResponse = await axios.get(
+        `http://${questdbHost}/exec?query=${encodeURIComponent(speedingVehicleSqlString)}`,
+    );
+    const speedingVehiclesCount = await speedingVehicleResponse.data.dataset[0][0];
+
+    // const speedingVehiclesCount = speedingVehicleJson.dataset[0][0];
+    // const speedingVehicles = idleVehicleJson.dataset.reduce((accumulator: number, currentValue: number[]) => {
+    // if (currentValue[1] === 1) {
+    //     return accumulator + 1;  // Increment the sum if the second value is 1
+    // }
+    // return accumulator; // Otherwise, return the accumulator unchanged
+    // }, 0);
+    return speedingVehiclesCount;
+}
+
+/** Speeding Vehicles: ignition=1 and speed> 45 */
+export const fetchSpeedingVehicles = async (vehicleNumbers: string) => {
+    logDebug(`VehicleTelemetryDataController:fetchAllVehiclesWithIgnitionOff: Entering`);
+    const query = `select * from ( SELECT vehicleNumber, ignition, speed, timestamp from ${vehicleTelemetryTable}
+            where vehicleNumber in (${vehicleNumbers})
+            LATEST ON timestamp PARTITION BY vehicleNumber ) where ignition=1 and speed> 45 ` ;
+
+    const data = await queryQuestDB(query);
+    logDebug(`VehicleTelemetryDataController:fetchIdleVehicle. Fetched Idle vehicles from questDb. ${JSON.stringify(data)}`, data);
+    return data;
 }
 
 /**
@@ -667,16 +820,14 @@ export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
 
     const { orgId, encodedViewport, query } = req.query;
     // console.log(`request: ${JSON.stringify(req.query)}`);
-    let viewport ='';
+    let viewport = '';
     let searchParam = '';
-    if(query){
+    if (query) {
         searchParam = query as string;
     }
-    if(encodedViewport){
+    if (encodedViewport) {
         viewport = JSON.parse(String(encodedViewport));
     }
-
-    logInfo(`orgid and viewport:`, searchParam);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -1421,12 +1572,13 @@ export const fetchAllRunningVehicleNumbers = async (allVehicles: []) => {
     if (allVehicles) {
         vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
     }
-    const query = `select vehicleNumber from
-                    (select vehicleNumber, ignition from VehicleTelemetry where vehicleNumber in  ( ${vehicleNumbers} )
-                            latest on timestamp PARTITION BY vehicleNumber) where ignition=1` ;
+    // const queryString = `select vehicleNumber from
+    //                 (select vehicleNumber, ignition from VehicleTelemetry where vehicleNumber in  ( ${vehicleNumbers} )
+    //                         latest on timestamp PARTITION BY vehicleNumber) where ignition=1` ;
 
-    // console.log(`query formed: ${query}`);
-    const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
+    const queryString = `select distinct vehicleNumber from ${vehicleTelemetryTable} where vehicleNumber in (${vehicleNumbers}) `;
+    // logInfo(`query formed: ${queryString}`);
+    const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(queryString)}`);
     const json = await response.data;
 
     result = parseQuestDBResponseToJson(json);
@@ -1676,8 +1828,8 @@ export async function manualExporVehicleTelemetryReport(req: Request, res: Respo
     res.status(200).json(`emailed successfully`);
 }
 
-export async function fetchLatestVehicleTelemetryReportName(orgId: String){
-    
+export async function fetchLatestVehicleTelemetryReportName(orgId: String) {
+
     const query = `select reportName from ${vehicleTelemetryReportTable} where orgId='${orgId}' order by timestamp desc limit 1`;
 
     logDebug(`VehicleTelemetryDataController:fetchLatestVehicleTelemetryReportName: query:`, query);
@@ -1700,20 +1852,20 @@ export async function fetchLatestVehicleTelemetryReportName(orgId: String){
     return reportName[0].reportName;
 }
 
-export async function fetchLatestVehicleTelemetryReport(req: Request, res: Response){
+export async function fetchLatestVehicleTelemetryReport(req: Request, res: Response) {
     const orgId = req.query.orgId;
     const reportName = await fetchLatestVehicleTelemetryReportName(orgId as string);
-    if(reportName){
+    if (reportName) {
         const vehicleTelemetryReport = await fetchVehicleTelemetryReportByReportName(reportName);
-        if(vehicleTelemetryReport){
+        if (vehicleTelemetryReport) {
             logDebug(`VehicleTelemetryDataController:fetchLatestVehicleTelemetryReport: Vehicle telemetry Report data fetched:`, vehicleTelemetryReport);
             res.status(200).json(vehicleTelemetryReport);
         }
-    }   
+    }
 }
 
-export async function fetchLatestGeofenceTelemetryReportName(orgId: String){
-    
+export async function fetchLatestGeofenceTelemetryReportName(orgId: String) {
+
     const query = `select reportName from ${geofenceTelemetryReportTable} where orgId='${orgId}' order by timestamp desc limit 1`;
 
     const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
@@ -1735,26 +1887,25 @@ export async function fetchLatestGeofenceTelemetryReportName(orgId: String){
     return reportName[0];
 }
 
-export async function fetchLatestGeofenceTelemetryReport(req: Request, res: Response){
+export async function fetchLatestGeofenceTelemetryReport(req: Request, res: Response) {
     const orgId = req.query.orgId;
     const reportName = await fetchLatestGeofenceTelemetryReportName(orgId as string);
-    if(reportName){
+    if (reportName) {
         const vehicleTelemetryReport = await fetchGeofenceTelemetryReportByReportName(reportName);
-        if(vehicleTelemetryReport){
+        if (vehicleTelemetryReport) {
             logDebug(`VehicleTelemetryDataController:fetchLatestGeofenceTelemetryReport: Geofence telemetry Report data fetched:`, vehicleTelemetryReport);
             res.status(200).json(vehicleTelemetryReport);
         }
-    }   
+    }
 }
 
-
-async function fetchLastKnownLocation(serialNumber:string) {
+async function fetchLastKnownLocation(serialNumber: string) {
     logDebug(`VehicleTelemetryDataController:fetchLastKnownLocation: Fetching last known location of vehicle with serial number: ${serialNumber}`, serialNumber);
 
     const query = `select vehicleNumber, latitude, longitude from ${vehicleTelemetryTable} where serialNumber='${serialNumber}' LATEST ON timestamp PARTITION BY vehicleNumber `;
     const data = await queryQuestDB(query);
 
-    return data;
+    return data[0];
 }
 
 const queryQuestDB = async (query: any) => {
@@ -1773,6 +1924,6 @@ const queryQuestDB = async (query: any) => {
         return obj;
     });
 
-    logDebug(`VehicleTelemetryDataController:queryQuestDB: data returned:`, data[0]);
-    return data[0];
+    logDebug(`VehicleTelemetryDataController:queryQuestDB: data returned:`, data);
+    return data;
 }
