@@ -143,7 +143,7 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
         const vehicleOff = `${parsedMessage.serialNumber}_${parsedMessage.ignition}`;
         const vehicleOffInRedis = await redisPool.getConnection().get(`${vehicleOff}`);
         if (vehicleOffInRedis) {
-            logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: Vehicle is Off. Will not insert into VehicleTelemetry table again.`);
+            logInfo(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: Vehicle ${parsedMessage.serialNumber} is Off. Will not insert into VehicleTelemetry table again.`);
             await redisPool.getConnection().set(`${vehicleOff}`, vehicleOff as string, 'EX', configValue); // 2min.
             return;
         }
@@ -593,21 +593,21 @@ export const fetchRunningVehicleCount = async (req: Request, res: Response) => {
 
 export const fetchRunningVehicleCountSSE = async (req: Request, res: Response) => {
 
-    const { orgId } = req.query;
+    const { orgId, vendorId } = req.query;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountSSE: Entering with orgId: ${orgId}`, orgId);
+    logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountSSE: Entering with orgId ${orgId} and vendorId ${vendorId}`, orgId, vendorId);
 
-    const result = await fetchRunningVehicleCountForSSE(orgId);
+    const result = await fetchRunningVehicleCountForSSE(orgId, vendorId);
     logDebug(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent first time:`, result);
     res.write(`data:${JSON.stringify(result)}\n\n`);
 
     ////////////// logic to push data every 5 sec Starts
     const interval = setInterval(async () => {
-        const result = await fetchRunningVehicleCountForSSE(orgId);
+        const result = await fetchRunningVehicleCountForSSE(orgId, vendorId);
         logDebug(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again:`, result);
         res.write(`data:${JSON.stringify(result)}\n\n`);
     }, sseDataPushInterval as number); // pushing data every 5 secs
@@ -617,10 +617,9 @@ export const fetchRunningVehicleCountSSE = async (req: Request, res: Response) =
         res.end();
     });
     ////////////// 
-
 }
 
-const fetchRunningVehicleCountForSSE = async (orgId: any) => {
+const fetchRunningVehicleCountForSSE = async (orgId: any, vendorId: any) => {
     logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE: inside with orgId ${orgId}`, orgId);
 
     // steps to fetch currently in-flight vehicles correspond to the organization
@@ -629,7 +628,7 @@ const fetchRunningVehicleCountForSSE = async (orgId: any) => {
     const queryString = '';
     let result;
     try {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId, queryString); // #1
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString); // #1
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountForSSE: vehicles appended for query`, vehicleNumbers);
@@ -818,7 +817,7 @@ export const fetchSpeedingVehicles = async (vehicleNumbers: string) => {
  */
 export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
 
-    const { orgId, encodedViewport, query } = req.query;
+    const { orgId, vendorId, encodedViewport, query } = req.query;
     // console.log(`request: ${JSON.stringify(req.query)}`);
     let viewport = '';
     let searchParam = '';
@@ -833,14 +832,14 @@ export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    const result = await fetchAllVehiclesForSSE(orgId, searchParam, viewport);
+    const result = await fetchAllVehiclesForSSE(orgId, vendorId, searchParam, viewport);
     logDebug(`VehicleTelemetryDataController:fetchAllVehiclesSSE: data being sent first time:`, result);
     res.write(`data:${JSON.stringify(result)}\n\n`);
     // res.status(200).json(result);
 
     ////////////// logic to push the data every 5 sec Starts
     const interval = setInterval(async () => {
-        const result = await fetchAllVehiclesForSSE(orgId, searchParam, viewport);
+        const result = await fetchAllVehiclesForSSE(orgId, vendorId, searchParam, viewport);
         // console.log(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again ${result}`);
         res.write(`data:${JSON.stringify(result)}\n\n`);
         // res.status(200).json(result);
@@ -854,16 +853,16 @@ export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
 
 }
 
-const fetchAllVehiclesForSSE = async (orgId: any, query: string, viewport: any) => {
+const fetchAllVehiclesForSSE = async (orgId: any, vendorId:any, query: string, viewport: any) => {
 
     // steps to fetch all vehicles with their location info and running status correspond to the organization
     // 1. get the list of vehicles of the organization from postgresql db / cache
     // 2. query questDB with the list of vehicles
 
-    logDebug(`VehicleTelemetryDataController: fetchAllVehiclesForSSE: Entering with orgId: ${orgId} and viewport: ${JSON.stringify(viewport)}`);
+    logDebug(`VehicleTelemetryDataController: fetchAllVehiclesForSSE: Entering with orgId:${orgId}, vendorId:${vendorId} and viewport:${JSON.stringify(viewport)}`);
     let results: any[] = [];
     try {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId, query); // #1
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, query); // #1
         let viewportQuery = '';
         // if(viewport.north && viewport.south && viewport.east && viewport.west){
         //     viewportQuery = `and latitude <= ${viewport.north} and latitude >= ${viewport.south} and longitude <= ${viewport.east} and longitude >= ${viewport.west}`;

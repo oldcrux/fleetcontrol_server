@@ -1,6 +1,8 @@
 CREATE TABLE "Organization" (
 	"orgId" varchar(20) NOT NULL,
+	"primaryOrgId" varchar(20), -- only needed in case creating a vendor.
 	"organizationName" varchar(50) NOT NULL,
+	"orgType" varchar(20) NOT NULL,
 	"primaryContactName" varchar(50) NOT NULL,
 	"primaryPhoneNumber" varchar(20) NOT NULL,
 	"primaryEmail" varchar(50) NOT NULL,
@@ -18,11 +20,16 @@ CREATE TABLE "Organization" (
 	CONSTRAINT "Organization_pkey" PRIMARY KEY ("orgId")
 );
 
+ALTER TABLE "Organization" ADD COLUMN "orgType" varchar(20) NOT null default 'primary'; --primary, vendor
+ALTER TABLE "Organization" ADD COLUMN "primaryOrgId" varchar(20);
+
 CREATE TABLE "Users" (
 	"userId" varchar(20) NOT NULL,
 	"firstName" varchar(50) NOT NULL,
 	"lastName" varchar(50) NOT NULL,
-	"orgId" varchar(20) NOT NULL,
+	"primaryOrgId" varchar(20) NOT NULL,
+	"secondaryOrgId" varchar(20),
+	"role" varchar(20) not null default 'view',
 	email varchar(50) NOT NULL,
 	"phoneNumber" varchar(20) NOT NULL,
 	address1 varchar(100) NOT NULL,
@@ -39,7 +46,9 @@ CREATE TABLE "Users" (
 	CONSTRAINT "Users_email_key" UNIQUE (email),
 	CONSTRAINT "Users_pkey" PRIMARY KEY ("userId")
 );
-
+alter table "Users" rename column "orgId" to "primaryOrgId";
+alter table "Users"  add column "secondaryOrgId" varchar(20);
+alter table "Users"  add column "role" varchar(20) not null default 'view'; -- system, admin, view
 
 CREATE TABLE "GeofenceLocation" (
 	id serial4 NOT NULL,
@@ -64,7 +73,7 @@ CREATE TABLE "Vehicle" (
 	"vehicleNumber" varchar(20) NOT NULL,
 	make varchar(20) NULL,
 	model varchar(20) NULL,
-	"owner" varchar(50) NULL,
+	"vendorId" varchar(50) NULL,
 	"orgId" varchar(20) NOT NULL,
 	"serialNumber" varchar(20) NOT NULL,
 	"primaryPhoneNumber" varchar(20) NOT NULL,
@@ -72,12 +81,14 @@ CREATE TABLE "Vehicle" (
 	"vehicleGroup" varchar(100) NULL,
 	"geofenceLocationGroupName" varchar(100) NULL,
 	"isActive" varchar(1) NOT NULL DEFAULT '1',
+	"active" varchar(20) NOT null default 'active'; -- active, notactive, standby
 	"createdBy" varchar(20) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "Vehicle_pkey" PRIMARY KEY ("vehicleNumber")
 );
-
+alter table "Vehicle" add column "status" varchar(20) NOT null default 'active'; -- active, notactive, standby
+alter table "Vehicle" rename column "owner" to "vendorId";
 
 CREATE TABLE "AppConfig" (
 	"orgId" varchar(20) NULL,  /* There will be system level configs where orgId could be null. Ex - TCP rate limiter*/

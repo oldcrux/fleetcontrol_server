@@ -158,7 +158,7 @@ else {
 
       const msgSentTooSoon = await redisPool.getConnection().get(`${deviceId}`);
       if (msgSentTooSoon) {
-        logInfo(`Message from ${deviceIdIP} dropped. Sent too soon.`);
+        logInfo(`Message ${data} from ${deviceIdIP} dropped. Sent too soon.`);
         return;
       }
       await redisPool.getConnection().set(`${deviceId}`, deviceId as string, 'EX', configValue); // 30sec.

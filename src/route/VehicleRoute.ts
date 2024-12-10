@@ -68,7 +68,7 @@ router.post('/delete', deleteVehicle);
 
 // router.get('/all/byOrganization', fetchAllVehicleByOrganization);
 
-// GET {url}/node/api/vehicle/count/:organization
-router.get('/count/:organization', fetchAllVehicleCountByOrganization);
+// GET {url}/node/api/vehicle/count
+router.get('/count', fetchAllVehicleCountByOrganization);
 
 export default router;
