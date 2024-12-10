@@ -16,7 +16,7 @@ const Vehicle = sequelize.define('Vehicle', {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  owner: {
+  vendorId: {
     type: DataTypes.STRING,
     allowNull: true,
   },
@@ -45,6 +45,10 @@ const Vehicle = sequelize.define('Vehicle', {
     allowNull: true,
   },
   isActive: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  status: {
     type: DataTypes.STRING,
     allowNull: false,
   },

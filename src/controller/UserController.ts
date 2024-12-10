@@ -13,7 +13,7 @@ export const createUser = async (req: Request, res: Response) => {
     if (!req.body.userId
         || !req.body.firstName
         || !req.body.lastName
-        || !req.body.orgId
+        || !req.body.primaryOrgId
         || !req.body.email
         || !req.body.phoneNumber
         || !req.body.address1
@@ -26,13 +26,18 @@ export const createUser = async (req: Request, res: Response) => {
     }
     // const uuid = randomUUID();
 
+    // If the use has secondary orgId (i.e. primary='vendorOrd') set the role to view by default.  Will not give admin access to the vendors.
+    const role = req.body.secondaryOrgId? 'view' : req.body.role;
+
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     try {
         newUser = await User.create({
             userId: req.body.userId,
             firstName: req.body.firstName,
             lastName: req.body.lastName,
-            orgId: req.body.orgId,
+            primaryOrgId: req.body.primaryOrgId,
+            secondaryOrgId: req.body.secondaryOrgId,
+            role: role,
             email: req.body.email,
             phoneNumber: req.body.phoneNumber,
             address1: req.body.address1,
@@ -92,7 +97,7 @@ export const updatePassword = async (req: Request, res: Response) => {
     const userId = req.body.userId;
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-    const sqlString = `update "Users" set "password"='${hashedPassword}' where "orgId"='${orgId}' and "userId"='${userId}' `;
+    const sqlString = `update "Users" set "password"='${hashedPassword}' where "primaryOrgId"='${orgId}' and "userId"='${userId}' `;
     const [user] = await sequelize.query(sqlString, {
         Model: User,
         mapToModel: true,

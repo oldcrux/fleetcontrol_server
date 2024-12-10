@@ -49,7 +49,7 @@ export const createVehicle = async (req: Request, res: Response) => {
             vehicleNumber: req.body.vehicleNumber.trim(),
             make: req.body.make,
             model: req.body.model,
-            owner: req.body.owner,
+            vendorId: req.body.vendorId,
             orgId: req.body.orgId,
             createdBy: req.body.createdBy,
             primaryPhoneNumber: req.body.primaryPhoneNumber.trim(),
@@ -106,7 +106,7 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                     vehicleNumber: vehicle.vehicleNumber.trim(),
                     make: vehicle.make,
                     model: vehicle.model,
-                    owner: vehicle.owner,
+                    vendorId: vehicle.vendorId,
                     orgId: vehicle.orgId,
                     createdBy: vehicle.createdBy,
                     primaryPhoneNumber: vehicle.primaryPhoneNumber.trim(),
@@ -144,7 +144,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
     const result = await Vehicle.update({
         make: req.body.make,
         model: req.body.model,
-        owner: req.body.owner,
+        vendorId: req.body.vendorId,
         orgId: req.body.orgId,
         primaryPhoneNumber: req.body.primaryPhoneNumber.trim(),
         secondaryPhoneNumber: req.body.secondaryPhoneNumber ? req.body.secondaryPhoneNumber : null,
@@ -209,8 +209,6 @@ export const fetchVehicles = async (req: Request, res: Response) => {
         return;
     }
 
-    const count = await fetchAllVehicleCount(orgId as string);
-
     //whereClauses = `and (reportName like '%${query}%' or vehicleNumber like '%${query}%' or geofenceLocationGroupName like '%${query}%' or geofenceLocationTag like '%${query}%' )`;
 
     let whereCondition = '';
@@ -218,13 +216,15 @@ export const fetchVehicles = async (req: Request, res: Response) => {
         whereCondition = ` and ("vehicleNumber" like '%${globalFilter}%' 
                                     or "make" like '%${globalFilter}%' 
                                     or "model" like '%${globalFilter}%' 
-                                    or "owner" like '%${globalFilter}%' 
+                                    or "vendorId" like '%${globalFilter}%' 
                                     or "primaryPhoneNumber" like '%${globalFilter}%' 
                                     or "secondaryPhoneNumber" like '%${globalFilter}%' 
                                     or "serialNumber" like '%${globalFilter}%' 
                                     or "geofenceLocationGroupName" like '%${globalFilter}%' 
                                     or "vehicleGroup" like '%${globalFilter}%' )`;
     }
+
+    const count = await fetchAllVehicleCount(orgId as string, whereCondition);
 
     const query = `select * from "Vehicle" where "orgId"=? ${whereCondition} order by "updatedAt" desc limit ${size} offset ${start}`;
     logDebug(`vehicleController:fetchVehicles: query formed:`, query);
@@ -306,20 +306,27 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
     return vehicleNumber;
 }
 
-export const fetchAllVehicleByOrganization2 = async (orgId: string, query: string) => {
+export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: string, query: string) => {
     let allVehicle;
 
-    logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with query- ${query}`, orgId, query);
+    logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with query- ${query}`, orgId, vendorId, query);
     let finalQuery;
     if (query && typeof query === "string") {
         // Split the input by commas, trim whitespace, and wrap each item with quotes
         const items = query.split(",").map(query => `'${query.trim()}'`);
         finalQuery = items.join(", ");
     }
-
+    let sqlString;
+    logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with finalQuery- ${finalQuery}`, orgId, vendorId, finalQuery);
     if (finalQuery) {
-        logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with finalQuery- ${finalQuery}`, orgId, finalQuery);
-        const sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "owner" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        if(vendorId){
+            // user belongs to a vendor and has both primary and secondary orgId.
+            sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        }
+        else{
+            sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        }
+
         const [results] = await sequelize.query(`${sqlString}`, {
             replacements: [orgId],
             Model: Vehicle,
@@ -327,7 +334,21 @@ export const fetchAllVehicleByOrganization2 = async (orgId: string, query: strin
             type: QueryTypes.RAW
         });
         allVehicle = results;
-        logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned with query string- ${finalQuery}`, orgId, allVehicle);
+        logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned with query string- ${sqlString}`, orgId, allVehicle);
+        return allVehicle;
+    }
+    else if (vendorId) {
+        // user belongs to a vendor and has both primary and secondary orgId.
+        sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and "vendorId"='${vendorId}' `;
+
+        const [results] = await sequelize.query(`${sqlString}`, {
+            replacements: [orgId],
+            Model: Vehicle,
+            mapToModel: true,
+            type: QueryTypes.RAW
+        });
+        allVehicle = results;
+        logDebug(`VehicleController: fetchAllVehicleByOrganization: vehicle list returned for vendor- ${sqlString}`, orgId, vendorId, allVehicle);
         return allVehicle;
     }
     else {
@@ -396,27 +417,17 @@ export const fetchVehiclesAndGeoCountByOrganization = async (orgId: any) => {
 
 // In Use
 export const fetchAllVehicleCountByOrganization = async (req: Request, res: Response) => {
-    let orgId;
+    const { orgId, vendorId } = req.query;
 
-    const { organization } = req.params || {};
-    if (organization) {
-        orgId = organization;
+    logDebug(`VehicleController: fetchAllVehicleCountByOrganization: for OrgId:${orgId} and vendorId:${vendorId}`, orgId, vendorId);
+    let vendorIdQueryString = '';
+    if(vendorId){
+        vendorIdQueryString = `and "vendorId"='${vendorId}'`;
     }
-    else
-        orgId = req.body?.organization;
-
-    logDebug(`VehicleController: fetchAllVehicleCountByOrganization: for OrgId: ${orgId}`, orgId);
-
     const data: string | any[] = [];
     if (orgId) {
-        // const result = query(collection(firebaseDb, vehicleCollection), where("organization", "==", org));
-        // const querySnapshot = await getDocs(result);
-        // querySnapshot.forEach((doc) => {
-        //     const vehicle = doc.data();
-        //     data.push(vehicle.vehicleNumber);
-        // });
-
-        const [results] = await sequelize.query(`select count(1) as result from "Vehicle" where "orgId"=?`, {
+        let sqlString = `select count(1) as result from "Vehicle" where "orgId"=? ${vendorIdQueryString}`;
+        const [results] = await sequelize.query(sqlString, {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
@@ -427,7 +438,7 @@ export const fetchAllVehicleCountByOrganization = async (req: Request, res: Resp
         res.status(200).json(allVehicleCount.result);
     }
     else {
-        res.status(200).json('no Vehicle found for your organization');
+        res.status(400).json('no Vehicle found for your organization');
     }
 }
 
@@ -444,7 +455,7 @@ export const fetchVehicleAndGeoByOrganization = async (orgId: any) => {
 
 export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     const [allVehicle] = await sequelize.query(`SELECT "Vehicle"."vehicleNumber", 
-                "Vehicle"."geofenceLocationGroupName", "Vehicle"."owner",
+                "Vehicle"."geofenceLocationGroupName", "Vehicle"."vendorId",
                 COUNT("GeofenceLocation"."geofenceLocationGroupName") AS "geoLocationsCount"
             FROM "Vehicle"
             left join "GeofenceLocation"
@@ -460,7 +471,7 @@ export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     return allVehicle;
 }
 
-export const fetchAllVehicleCount = async (orgId: string) => {
+export const fetchAllVehicleCount = async (orgId: string, whereCondition: string) => {
     if (orgId) {
         // const result = query(collection(firebaseDb, vehicleCollection), where("organization", "==", org));
         // const querySnapshot = await getDocs(result);
@@ -469,7 +480,7 @@ export const fetchAllVehicleCount = async (orgId: string) => {
         //     data.push(vehicle.vehicleNumber);
         // });
 
-        const [results] = await sequelize.query(`select count(1) as result from "Vehicle" where "orgId"=?`, {
+        const [results] = await sequelize.query(`select count(1) as result from "Vehicle" where "orgId"=? ${whereCondition}`, {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
@@ -593,30 +604,36 @@ function convertToVehiclesApiResponse(vehicleJson: any, totalRowCount: any) {
 
 /** Ghost Vehicles: Vehicle that never sent data */
 export const fetchGhostVehicles = async (req: Request, res: Response) => {
-    logDebug(`VehicleController:fetchAllVehicleIdleVehicles: Entering with request:`, req.query);
-    const orgId = req.query.orgId;
+    logDebug(`VehicleController:fetchGhostVehicles: Entering with request:`, req.query);
+    const orgId = req.query.orgId as string;
+    const vendorId = req.query.vendorId as string;
     const queryString = '';
+    let vendorIdQueryString = '';
+    if(vendorId){
+        vendorIdQueryString = `and "vendorId"='${vendorId}'`;
+    }
     if (orgId) {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
         const runningVehicleNumbers = await fetchAllRunningVehicleNumbers(allVehicles);
 
         let query;
         let runningVehicleNumberString;
         if (runningVehicleNumbers.length > 0) {
             runningVehicleNumberString = runningVehicleNumbers.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
-            logDebug(`VehicleController:fetchAllVehicleIdleVehicles: All running vehicle Numbers: ${runningVehicleNumberString}`, runningVehicleNumberString);
-            query = `select * from "Vehicle" where "orgId"=? and "vehicleNumber" not in ( ${runningVehicleNumberString})`;
+            logDebug(`VehicleController:fetchGhostVehicles: All running vehicle Numbers: ${runningVehicleNumberString}`, runningVehicleNumberString);
+            query = `select * from "Vehicle" where "orgId"=? ${vendorIdQueryString} and "vehicleNumber" not in ( ${runningVehicleNumberString})`;
         }
         else {
-            query = `select * from "Vehicle" where "orgId"=? `;
+            query = `select * from "Vehicle" where "orgId"=? ${vendorIdQueryString} `;
         }
+        // logDebug(`VehicleController:fetchGhostVehicles: query:`, query);
         const [results] = await sequelize.query(`${query}`, {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
             type: QueryTypes.RAW
         });
-        logDebug(`VehicleController:fetchAllVehicleIdleVehicles: fetched all idle vehicles`, results);
+        logDebug(`VehicleController:fetchGhostVehicles: fetched all idle vehicles`, results);
         res.status(200).json(results);
     }
 }
@@ -624,15 +641,16 @@ export const fetchGhostVehicles = async (req: Request, res: Response) => {
 /** Method returns all vehicles whose ignition=0 */
 export const fetchAllVehiclesWithIgnitionOff = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllVehiclesWithIgnitionOff: Entering with request:`, req.query);
-    const orgId = req.query.orgId;
+    const orgId = req.query.orgId as string;
+    const vendorId = req.query.vendorId as string;
     const queryString = '';
     if (orgId) {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchAllVehiclesWithIgnitionOff: vehicles appended for query`, vehicleNumbers);
             const vehiclesIgnitionOff = await fetchVehiclesWithIgnitionOff(vehicleNumbers);
-            const results = await fetchVehiclesByVehicleNumber(orgId as string, vehiclesIgnitionOff);
+            const results = await fetchVehiclesByVehicleNumber(orgId, vehiclesIgnitionOff);
             const finalResult = mergeVehicleDatafromQuestDBAndPostgresql(vehiclesIgnitionOff, results)
 
             logDebug(`VehicleController:fetchAllVehiclesWithIgnitionOff: `, finalResult);
@@ -644,15 +662,16 @@ export const fetchAllVehiclesWithIgnitionOff = async (req: Request, res: Respons
 /** Method returns all vehicles whose ignition=1 and speed=0 */
 export const fetchAllIdleVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllIdleVehicles: Entering with request:`, req.query);
-    const orgId = req.query.orgId;
+    const orgId = req.query.orgId as string;
+    const vendorId = req.query.vendorId as string;
     const queryString = '';
     if (orgId) {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchAllIdleVehicles: vehicles appended for query`, vehicleNumbers);
             const idleVehicles = await fetchIdleVehicles(vehicleNumbers);
-            const results = await fetchVehiclesByVehicleNumber(orgId as string, idleVehicles);
+            const results = await fetchVehiclesByVehicleNumber(orgId, idleVehicles);
             const finalResult = mergeVehicleDatafromQuestDBAndPostgresql(idleVehicles, results)
 
             logDebug(`VehicleController:fetchAllIdleVehicles: `, finalResult);
@@ -664,10 +683,11 @@ export const fetchAllIdleVehicles = async (req: Request, res: Response) => {
 /** Method returns all vehicles whose ignition=1 and speed>0 and <= 45 */
 export const fetchAllRunningVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllRunningVehicles: Entering with request:`, req.query);
-    const orgId = req.query.orgId;
+    const orgId = req.query.orgId as string;
+    const vendorId = req.query.vendorId as string;
     const queryString = '';
     if (orgId) {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchAllRunningVehicles: vehicles appended for query`, vehicleNumbers);
@@ -684,10 +704,11 @@ export const fetchAllRunningVehicles = async (req: Request, res: Response) => {
 /** Method returns all vehicles whose ignition=1 and speed>45 */
 export const fetchAllSpeedingVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchAllSpeedingVehicles: Entering with request:`, req.query);
-    const orgId = req.query.orgId;
+    const orgId = req.query.orgId as string;
+    const vendorId = req.query.vendorId as string;
     const queryString = '';
     if (orgId) {
-        const allVehicles = await fetchAllVehicleByOrganization2(orgId as string, queryString);
+        const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
         if (allVehicles.length > 0) {
             const vehicleNumbers = allVehicles.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
             logDebug(`VehicleTelemetryDataController: fetchAllSpeedingVehicles: vehicles appended for query`, vehicleNumbers);

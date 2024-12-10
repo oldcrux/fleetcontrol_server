@@ -11,10 +11,10 @@ async function generateVehicleExcel(reportName: any, reportData: any) {
         const worksheet = workbook.addWorksheet('Report');
 
         if (reportData.length === 0) {
-            logError(`NotificationController:generateExcel: reportData Empty`);
+            logError(`NotificationController:generateVehicleExcel: reportData Empty`);
             throw new Error('reportData is empty.');
         }
-        logDebug(`NotificationController:generateExcel: Data before generating XLS:`, reportData);
+        logDebug(`NotificationController:generateVehicleExcel: Data before generating XLS:`, reportData);
         // Extract columns from the first object in the array
         const columns = Object.keys(reportData[0]).map((key) => ({ header: formatHeader(key), key }));
         worksheet.columns = columns;
@@ -82,10 +82,10 @@ async function generateVehicleExcel(reportName: any, reportData: any) {
         const filePath = `report_${reportName}.xlsx`;
         await workbook.xlsx.writeFile(filePath);
 
-        logDebug('NotificationController:generateExcel: Excel file created successfully:', filePath);
+        logDebug('NotificationController:generateVehicleExcel: Excel file created successfully:', filePath);
         return filePath;
     } catch (error) {
-        logError('NotificationController:generateExcel: Error generating Excel file:', error);
+        logError('NotificationController:generateVehicleExcel: Error generating Excel file:', error);
         throw error;
     }
 }
@@ -96,11 +96,11 @@ async function generateGeofenceExcel(reportName: any, reportData: any) {
         const worksheet = workbook.addWorksheet('Report');
 
         if (reportData.length === 0) {
-            logError(`NotificationController:generateExcel: reportData Empty`);
+            logError(`NotificationController:generateGeofenceExcel: reportData Empty`);
             throw new Error('reportData is empty.');
         }
 
-        logDebug(`NotificationController:generateExcel: Data before generating XLS:`, reportData);
+        logDebug(`NotificationController:generateGeofenceExcel: Data before generating XLS:`, reportData);
 
         // Extract columns from the first object in the array
         const columns = Object.keys(reportData[0]).map((key) => ({ header: formatHeader(key), key }));
@@ -156,10 +156,10 @@ async function generateGeofenceExcel(reportName: any, reportData: any) {
         const filePath = `report_${reportName}.xlsx`;
         await workbook.xlsx.writeFile(filePath);
 
-        logDebug('NotificationController:generateExcel: Excel file created successfully:', filePath);
+        logDebug('NotificationController:generateGeofenceExcel: Excel file created successfully:', filePath);
         return filePath;
     } catch (error) {
-        logError('NotificationController:generateExcel: Error generating Excel file:', error);
+        logError('NotificationController:generateGeofenceExcel: Error generating Excel file:', error);
         throw error;
     }
 }
@@ -222,12 +222,12 @@ export async function notifyViaEmail(reportName: any, reportData: any) {
     if (reportName.includes("vehicle")) {
         generateVehicleExcel(reportName, reportData)
             .then((filePath) => sendEmail(filePath))
-            .catch((err) => logError('NotificationController:notifyViaEmail: Failed to generate or send email:', err));
+            .catch((err) => logError('NotificationController:notifyViaEmail: Failed to generate vehicle report or send email:', err));
     }
     else if (reportName.includes("geofence")) {
         generateGeofenceExcel(reportName, reportData)
             .then((filePath) => sendEmail(filePath))
-            .catch((err) => logError('NotificationController:notifyViaEmail Failed to generate or send email:', err));
+            .catch((err) => logError('NotificationController:notifyViaEmail Failed to generate geofence report or send email:', err));
     }
 }
 

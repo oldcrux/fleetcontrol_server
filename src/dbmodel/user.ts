@@ -16,7 +16,15 @@ const User = sequelize.define('Users', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  orgId: {
+  primaryOrgId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  secondaryOrgId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  role: {
     type: DataTypes.STRING,
     allowNull: false,
   },
