@@ -30,18 +30,27 @@ export const createVehicle = async (req: Request, res: Response) => {
         res.status(400).json({ error: 'incomplelete Vehicle payload' });
     }
 
-    var isActive = req.body.isActive;
-    let isActivedb = 1;
-    if (!isNullOrUndefinedOrNaN(isActive)) {
-        console.log(`is Active`, isActive);
-        const normalizedActive = String(isActive).trim().toLowerCase();
-        if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
-            isActivedb = 1;
-        }
-        if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
-            isActivedb = 0;
+    if (req.body.status) {
+        if (req.body.status !== 'Active' && req.body.status !== 'NotActive' && req.body.status !== 'Standby') {
+            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [active, notactive, standby]' });
         }
     }
+
+    //TODO if vendor is not in organization table error
+    //TODO if geofence group is not in geofences table error
+
+    // var isActive = req.body.isActive;
+    // let isActivedb = 1;
+    // if (!isNullOrUndefinedOrNaN(isActive)) {
+    //     console.log(`is Active`, isActive);
+    //     const normalizedActive = String(isActive).trim().toLowerCase();
+    //     if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
+    //         isActivedb = 1;
+    //     }
+    //     if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
+    //         isActivedb = 0;
+    //     }
+    // }
 
     // TODO add data validation validation.
     try {
@@ -57,7 +66,7 @@ export const createVehicle = async (req: Request, res: Response) => {
             serialNumber: req.body.serialNumber.trim(),
             geofenceLocationGroupName: req.body.geofenceLocationGroupName ? req.body.geofenceLocationGroupName.trim() : null,
             vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null,
-            isActive: isActivedb,
+            status: req.body.status,
         });
         await redisPool.getConnection().hdel('vehicleCache', req.body.orgId); // Delete all the cache. The new vehicle will make it to the cache when reloaded.
         res.status(200).json(newVehicle);
@@ -85,22 +94,33 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                     || !vehicle.primaryPhoneNumber) {
                     errorVehicle.push(`Incomplelete Vehicle payload ${vehicle.vehicleNumber}`);
 
-                    logDebug(`VehicleController: bulkCreateVehicle. Vehicle data Error`);
+                    logError(`VehicleController: bulkCreateVehicle. Vehicle data Error`);
                     return;
                 }
 
-                var isActive = vehicle.isActive;
-                let isActivedb = 1;
-                if (!isNullOrUndefinedOrNaN(isActive)) {
-
-                    const normalizedActive = String(isActive).trim().toLowerCase();
-                    if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
-                        isActivedb = 1;
-                    }
-                    if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
-                        isActivedb = 0;
+                if (vehicle.status) {
+                    if (vehicle.status !== 'Active' && vehicle.status !== 'NotActive' && vehicle.status !== 'Standby') {
+                        logError('Invalid status value.  Expected value could be from [active, notactive, standby]');
+                        return;
                     }
                 }
+
+
+                //TODO if vendor is not in organization table error
+                //TODO if geofence group is not in geofences table error
+
+                // var isActive = vehicle.isActive;
+                // let isActivedb = 1;
+                // if (!isNullOrUndefinedOrNaN(isActive)) {
+
+                //     const normalizedActive = String(isActive).trim().toLowerCase();
+                //     if (normalizedActive === '1' || normalizedActive === 'true' || normalizedActive === 'y' || normalizedActive === 'yes') {
+                //         isActivedb = 1;
+                //     }
+                //     if (normalizedActive === '0' || normalizedActive === 'false' || normalizedActive === 'n' || normalizedActive === 'no') {
+                //         isActivedb = 0;
+                //     }
+                // }
 
                 const newVehicle = await Vehicle.create({
                     vehicleNumber: vehicle.vehicleNumber.trim(),
@@ -114,7 +134,7 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                     serialNumber: vehicle.serialNumber.trim(),
                     geofenceLocationGroupName: vehicle.geofenceLocationGroupName ? vehicle.geofenceLocationGroupName.trim() : null,
                     vehicleGroup: vehicle.vehicleGroup ? vehicle.vehicleGroup : null,
-                    isActive: isActivedb,
+                    status: vehicle.status,
                 });
                 createdVehicles.push(newVehicle);
             }
@@ -134,12 +154,21 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
 export const updateVehicle = async (req: Request, res: Response) => {
     logDebug(`VehicleController:updateVehicle: payload:`, req.body);
 
-    var isActive = req.body.isActive;
-    let isActivedb = 1;
-    if (isActive === '1' || isActive.toLowerCase() === 'true' || isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
-        isActivedb = 1;
-    if (isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
-        isActivedb = 0;
+    // var isActive = req.body.isActive;
+    // let isActivedb = 1;
+    // if (isActive === '1' || isActive.toLowerCase() === 'true' || isActive.toLowerCase() === 'y' || isActive.toLowerCase() === 'yes')
+    //     isActivedb = 1;
+    // if (isActive === '0' || isActive.toLowerCase() === 'false' || isActive.toLowerCase() === 'n' || isActive.toLowerCase() === 'no')
+    //     isActivedb = 0;
+
+    if (req.body.status) {
+        if (req.body.status !== 'Active' && req.body.status !== 'NotActive' && req.body.status !== 'Standby') {
+            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [active, notactive, standby]' });
+        }
+    }
+
+    //TODO if vendor is not in organization table error
+    //TODO if geofence group is not in geofences table error
 
     const result = await Vehicle.update({
         make: req.body.make,
@@ -151,7 +180,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
         serialNumber: req.body.serialNumber.trim(),
         geofenceLocationGroupName: req.body.geofenceLocationGroupName ? req.body.geofenceLocationGroupName.trim() : null,
         vehicleGroup: req.body.vehicleGroup ? req.body.vehicleGroup : null,
-        isActive: isActivedb,
+        status: req.body.status,
     },
         { where: { vehicleNumber: req.body.vehicleNumber } });
     await redisPool.getConnection().hdel('vehicleCache', req.body.orgId);
@@ -213,12 +242,13 @@ export const fetchVehicles = async (req: Request, res: Response) => {
     //whereClauses = `and (reportName like '%${query}%' or vehicleNumber like '%${query}%' or geofenceLocationGroupName like '%${query}%' or geofenceLocationTag like '%${query}%' )`;
 
     let vendorIdCondition = '';
-    if(vendorId){
+    if (vendorId) {
         vendorIdCondition = `and "vendorId"='${vendorId}' `;
     }
     let whereCondition = '';
     if (globalFilter) {
         whereCondition = ` and ("vehicleNumber" like '%${globalFilter}%' 
+                                    or "status" like '%${globalFilter}%' 
                                     or "make" like '%${globalFilter}%' 
                                     or "model" like '%${globalFilter}%' 
                                     or "vendorId" like '%${globalFilter}%' 
@@ -329,7 +359,7 @@ export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: st
         //     sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
         // }
         // else{
-            sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
         // }
 
         const [results] = await sequelize.query(`${sqlString}`, {
@@ -426,7 +456,7 @@ export const fetchAllVehicleCountByOrganization = async (req: Request, res: Resp
 
     logDebug(`VehicleController: fetchAllVehicleCountByOrganization: for OrgId:${orgId} and vendorId:${vendorId}`, orgId, vendorId);
     let vendorIdQueryString = '';
-    if(vendorId){
+    if (vendorId) {
         vendorIdQueryString = `and "vendorId"='${vendorId}'`;
     }
     const data: string | any[] = [];
@@ -460,7 +490,7 @@ export const fetchVehicleAndGeoByOrganization = async (orgId: any) => {
 
 export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     const [allVehicle] = await sequelize.query(`SELECT "Vehicle"."vehicleNumber", 
-                "Vehicle"."geofenceLocationGroupName", "Vehicle"."vendorId",
+                "Vehicle"."geofenceLocationGroupName", "Vehicle"."vendorId", "Vehicle"."vehicleGroup", "Vehicle"."status",
                 COUNT("GeofenceLocation"."geofenceLocationGroupName") AS "geoLocationsCount"
             FROM "Vehicle"
             left join "GeofenceLocation"
@@ -608,7 +638,7 @@ export const fetchGhostVehicles = async (req: Request, res: Response) => {
     const vendorId = req.query.vendorId as string;
     const queryString = '';
     let vendorIdQueryString = '';
-    if(vendorId){
+    if (vendorId) {
         vendorIdQueryString = `and "vendorId"='${vendorId}'`;
     }
     if (orgId) {

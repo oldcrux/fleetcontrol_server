@@ -80,14 +80,14 @@ CREATE TABLE "Vehicle" (
 	"secondaryPhoneNumber" varchar(20) NULL,
 	"vehicleGroup" varchar(100) NULL,
 	"geofenceLocationGroupName" varchar(100) NULL,
-	"isActive" varchar(1) NOT NULL DEFAULT '1',
-	"active" varchar(20) NOT null default 'active'; -- active, notactive, standby
+	"status" varchar(20) NOT null default 'Active'; -- Active, NotActive, Standby
 	"createdBy" varchar(20) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "Vehicle_pkey" PRIMARY KEY ("vehicleNumber")
 );
-alter table "Vehicle" add column "status" varchar(20) NOT null default 'active'; -- active, notactive, standby
+ALTER TABLE "Vehicle" DROP COLUMN "isActive";
+alter table "Vehicle" add column "status" varchar(20) NOT null default 'active'; -- Active, NotActive, Standby
 alter table "Vehicle" rename column "owner" to "vendorId";
 
 CREATE TABLE "AppConfig" (
