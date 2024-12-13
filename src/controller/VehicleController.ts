@@ -31,8 +31,8 @@ export const createVehicle = async (req: Request, res: Response) => {
     }
 
     if (req.body.status) {
-        if (req.body.status !== 'Active' && req.body.status !== 'NotActive' && req.body.status !== 'Standby') {
-            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [active, notactive, standby]' });
+        if (req.body.status !== 'Active' && req.body.status !== 'InActive' && req.body.status !== 'Standby') {
+            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [Active, InActive, Standby]' });
         }
     }
 
@@ -99,8 +99,8 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                 }
 
                 if (vehicle.status) {
-                    if (vehicle.status !== 'Active' && vehicle.status !== 'NotActive' && vehicle.status !== 'Standby') {
-                        logError('Invalid status value.  Expected value could be from [active, notactive, standby]');
+                    if (vehicle.status !== 'Active' && vehicle.status !== 'InActive' && vehicle.status !== 'Standby') {
+                        logError('Invalid status value.  Expected value could be from [Active, InActive, Standby]');
                         return;
                     }
                 }
@@ -162,8 +162,8 @@ export const updateVehicle = async (req: Request, res: Response) => {
     //     isActivedb = 0;
 
     if (req.body.status) {
-        if (req.body.status !== 'Active' && req.body.status !== 'NotActive' && req.body.status !== 'Standby') {
-            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [active, notactive, standby]' });
+        if (req.body.status !== 'Active' && req.body.status !== 'InActive' && req.body.status !== 'Standby') {
+            res.status(400).json({ error: 'Invalid status value.  Expected value could be from [Active, InActive, Standby]' });
         }
     }
 
