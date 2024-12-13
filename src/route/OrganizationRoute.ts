@@ -5,10 +5,11 @@ const router = Router();
 
 // Define routes
 
-// POST {url}/api/organization/create
+// POST {url}/node/api/organization/create
 router.post('/create', createOrganization);
 
 
-// GET {url}/api/organization/search
+// GET {url}/node/api/organization/search
 router.get('/search', searchOrganizationByOrgId);
+
 export default router;

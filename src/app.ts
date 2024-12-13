@@ -5,6 +5,7 @@ import net from "net";
 import express, { Request, Response } from "express";
 import userRoutes from './route/UserRoute';
 import organizationRoutes from './route/OrganizationRoute';
+import vendorRoutes from './route/VendorRoute';
 import vehicleRoutes from './route/VehicleRoute';
 import vehicleTelemetryDataRoutes from './route/VehicleTelemetryDataRoute';
 import geofenceRoute from './route/GeofenceRoute';
@@ -107,6 +108,7 @@ else {
   });
 
   app.use('/node/api/organization', organizationRoutes);
+  app.use('/node/api/vendor', vendorRoutes);
   app.use('/node/api/user', userRoutes);
   app.use('/node/api/vehicle', vehicleRoutes);
   app.use('/node/api/vehicleTelemetryData', vehicleTelemetryDataRoutes);

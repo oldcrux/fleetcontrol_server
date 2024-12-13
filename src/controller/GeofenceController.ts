@@ -376,7 +376,7 @@ export const searchMinMaxScheduleArrivalTimeByGroup = async (orgId: any, geofenc
         replacements: [orgId, geofenceLocationGroupName],
         type: QueryTypes.RAW,
     });
-    logInfo(`GeofenceController:searchMinMaxScheduleArrivalTimeByGroup: Response, geofenceLocationGroupName, minArrivalTime, maxArrivalTime`, results[0]);
+    logDebug(`GeofenceController:searchMinMaxScheduleArrivalTimeByGroup: Response, geofenceLocationGroupName, minArrivalTime, maxArrivalTime`, results[0]);
     return results[0];
 }
 

@@ -7,9 +7,12 @@ import { logDebug, logger, logInfo } from '../util/Logger';
 import sequelize from '../util/sequelizedb';
 import { QueryTypes } from 'sequelize';
 
+const primaryOrgType = 'primary';
+const vendorOrgType = 'vendor';
+
 export const createOrganization = async (req: Request, res: Response) => {
     let org;
-    if(!req.body.orgId 
+    if (!req.body.orgId
         || !req.body.organizationName
         || !req.body.primaryContactName
         || !req.body.primaryPhoneNumber
@@ -18,14 +21,14 @@ export const createOrganization = async (req: Request, res: Response) => {
         || !req.body.city
         || !req.body.state
         || !req.body.country
-        || !req.body.zip){
-            res.status(400).json({ error: 'incomplelete Organization payload' });
+        || !req.body.zip) {
+        res.status(400).json({ error: 'incomplelete Organization payload' });
     }
-    else{
+    else {
         org = await Organization.create({
             orgId: req.body.orgId,
             organizationName: req.body.organizationName,
-            orgType: 'primary',
+            orgType: primaryOrgType,
             primaryContactName: req.body.primaryContactName,
             primaryPhoneNumber: req.body.primaryPhoneNumber,
             primaryEmail: req.body.primaryEmail,
@@ -35,7 +38,7 @@ export const createOrganization = async (req: Request, res: Response) => {
             state: req.body.state,
             country: req.body.country,
             zip: req.body.zip,
-            createdBy:req.body.createdBy,
+            createdBy: req.body.createdBy,
             latitude: req.body.latitude,
             longitude: req.body.longitude
         })
@@ -52,14 +55,14 @@ export const searchOrganizationByOrgId = async (req: Request, res: Response) => 
 
     logDebug(`organizationController:searchOrganization: Entering to fetch: ${JSON.stringify(req.query)}`);
     const orgId = req.query.orgId;
-    
+
     const [org] = await sequelize.query(`select * from "Organization" where "orgId" = ?`, {
         replacements: [orgId],
         Model: Organization,
         mapToModel: true,
         type: QueryTypes.RAW
     });
-    
+
     logDebug(`organizationController:searchOrganization: Organization fetched: ${org}`);
     res.status(200).json(org);
 }
@@ -69,8 +72,10 @@ export const deleteOrganization = async (req: Request, res: Response) => {
 }
 
 export const createVendor = async (req: Request, res: Response) => {
+    logDebug(`organizationController:createVendor: Creating new Vendor:`, req.body);
     let vendor;
-    if(!req.body.orgId 
+    if (!req.body.orgId
+        || !req.body.primaryOrgId
         || !req.body.organizationName
         || !req.body.primaryContactName
         || !req.body.primaryPhoneNumber
@@ -79,14 +84,15 @@ export const createVendor = async (req: Request, res: Response) => {
         || !req.body.city
         || !req.body.state
         || !req.body.country
-        || !req.body.zip){
-            res.status(400).json({ error: 'incomplelete vendor payload' });
+        || !req.body.zip) {
+        res.status(400).json({ error: 'incomplelete vendor payload' });
     }
-    else{
+    else {
         vendor = await Organization.create({
             orgId: req.body.orgId,
             organizationName: req.body.organizationName,
-            orgType: 'vendor',
+            orgType: vendorOrgType,
+            primaryOrgId: req.body.primaryOrgId,
             primaryContactName: req.body.primaryContactName,
             primaryPhoneNumber: req.body.primaryPhoneNumber,
             primaryEmail: req.body.primaryEmail,
@@ -96,23 +102,22 @@ export const createVendor = async (req: Request, res: Response) => {
             state: req.body.state,
             country: req.body.country,
             zip: req.body.zip,
-            createdBy:req.body.createdBy,
+            createdBy: req.body.createdBy,
             latitude: req.body.latitude,
             longitude: req.body.longitude
         })
     }
-    logDebug(`organizationController:createVendor: New Organization created: ${vendor}`);
+    logDebug(`organizationController:createVendor: New Vendor created: ${vendor}`);
     res.status(200).json(vendor);
 };
 
 
 export const updateVendor = async (req: Request, res: Response) => {
-
-    const vendor = await Organization.create({
-        orgId: req.body.orgId,
+    logDebug(`organizationController:updateVendor: Updating Vendor:`, req.body);
+    const vendor = await Organization.update({
         primaryOrgId: req.body.primaryOrgId,
         organizationName: req.body.organizationName,
-        orgType: 'vendor',
+        orgType: vendorOrgType,
         primaryContactName: req.body.primaryContactName,
         primaryPhoneNumber: req.body.primaryPhoneNumber,
         primaryEmail: req.body.primaryEmail,
@@ -122,11 +127,13 @@ export const updateVendor = async (req: Request, res: Response) => {
         state: req.body.state,
         country: req.body.country,
         zip: req.body.zip,
-        createdBy:req.body.createdBy,
+        createdBy: req.body.createdBy,
         latitude: req.body.latitude,
         longitude: req.body.longitude
-    })
+    },
+        { where: { orgId: req.body.orgId } });
 
+    logDebug(`organizationController:updateVendor: Updated Vendor:`, vendor);
     res.status(200).json(vendor);
 }
 
@@ -141,6 +148,7 @@ export const deleteVendor = async (req: Request, res: Response) => {
         where: {
             orgId: orgId,
             primaryOrgId: primaryOrgId,
+            orgType: vendorOrgType,
         }
     });
     logInfo(`OrganizationController:deleteVendor: Vendor deleted:${orgId}, with primary orgId:${primaryOrgId}`, orgId, primaryOrgId);
@@ -165,7 +173,6 @@ export const fetchVendors = async (req: Request, res: Response) => {
         res.status(400).json(`size param is required with value >0`);
         return;
     }
-
     let whereCondition = '';
     if (globalFilter) {
         whereCondition = ` and ("orgId" like '%${globalFilter}%' 
@@ -178,21 +185,37 @@ export const fetchVendors = async (req: Request, res: Response) => {
 
     const count = await fetchAllVendorCount(orgId as string, whereCondition);
 
-    const query = `select * from "Vehicle" where "primaryOrgId"=? ${whereCondition} order by "updatedAt" desc limit ${size} offset ${start}`;
-    logDebug(`OrganizationController:fetchVehicles: query formed:`, query);
+    const query = `select * from "Organization" where "orgType"='${vendorOrgType}' and "primaryOrgId"=? ${whereCondition} order by "updatedAt" desc limit ${size} offset ${start}`;
+    logDebug(`OrganizationController:fetchVendors: query formed:`, query);
     const [results] = await sequelize.query(query, {
         replacements: [orgId],
         type: QueryTypes.RAW,
     });
-    // logDebug(`OrganizationController:fetchVehicles:vehicles fetched from DB :`, results);
+    // logDebug(`OrganizationController:fetchVendors:vendors fetched from DB :`, results);
     const finalResponse = convertToVendorApiResponse(results, count);
-    logDebug(`OrganizationController:fetchVehicles:vehicles returned`, finalResponse);
+    logDebug(`OrganizationController:fetchVendors:vendors returned`, finalResponse);
     res.status(200).json(finalResponse);
 }
 
+export const fetchVendorNames = async (req: Request, res: Response) => {
+    const loggedinOrgId = req.query.orgId;
+    logDebug(`OrganizationController:fetchVendorNames: Entering with request:`, req.query);
+    const sqlString = `select "organizationName", "orgId" from "Organization" where "orgType"='${vendorOrgType}' and "primaryOrgId"=? `;
+
+    if (loggedinOrgId) {
+        const [results] = await sequelize.query(sqlString, {
+            replacements: [loggedinOrgId],
+            type: QueryTypes.RAW
+        });
+        logDebug(`OrganizationController:fetchVendorNames: vendors returned:`, results);
+        res.status(200).json(results);
+    }
+}
+
 export const fetchAllVendorCount = async (orgId: string, whereCondition: string) => {
+    const sqlString = `select count(1) as result from "Organization" where "orgType"='${vendorOrgType}' and "primaryOrgId"=? ${whereCondition} `;
     if (orgId) {
-        const [results] = await sequelize.query(`select count(1) as result from "Organization" where "primaryOrgId"=? ${whereCondition} `, {
+        const [results] = await sequelize.query(sqlString, {
             replacements: [orgId],
             Model: Organization,
             mapToModel: true,
