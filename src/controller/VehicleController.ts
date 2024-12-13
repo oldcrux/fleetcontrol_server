@@ -194,6 +194,7 @@ export const fetchVehicles = async (req: Request, res: Response) => {
     logDebug(`vehicleController:fetchVehicles: Entering with ${JSON.stringify(req.query)}`, req.query);
 
     const orgId = req.query.orgId;
+    const vendorId = req.query.vendorId;
     const start = parseInt(req.query.start as string) || 0;
     const size = parseInt(req.query.size as string) || 0;
     // const filters = JSON.parse(req.query.filters || '[]');
@@ -211,6 +212,10 @@ export const fetchVehicles = async (req: Request, res: Response) => {
 
     //whereClauses = `and (reportName like '%${query}%' or vehicleNumber like '%${query}%' or geofenceLocationGroupName like '%${query}%' or geofenceLocationTag like '%${query}%' )`;
 
+    let vendorIdCondition = '';
+    if(vendorId){
+        vendorIdCondition = `and "vendorId"='${vendorId}' `;
+    }
     let whereCondition = '';
     if (globalFilter) {
         whereCondition = ` and ("vehicleNumber" like '%${globalFilter}%' 
@@ -224,9 +229,9 @@ export const fetchVehicles = async (req: Request, res: Response) => {
                                     or "vehicleGroup" like '%${globalFilter}%' )`;
     }
 
-    const count = await fetchAllVehicleCount(orgId as string, whereCondition);
+    const count = await fetchAllVehicleCount(orgId as string, vendorIdCondition, whereCondition);
 
-    const query = `select * from "Vehicle" where "orgId"=? ${whereCondition} order by "updatedAt" desc limit ${size} offset ${start}`;
+    const query = `select * from "Vehicle" where "orgId"=? ${vendorIdCondition} ${whereCondition} order by "updatedAt" desc limit ${size} offset ${start}`;
     logDebug(`vehicleController:fetchVehicles: query formed:`, query);
     const [results] = await sequelize.query(query, {
         replacements: [orgId],
@@ -319,13 +324,13 @@ export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: st
     let sqlString;
     logDebug(`VehicleController: fetchAllVehicleByOrganization2: searching with finalQuery- ${finalQuery}`, orgId, vendorId, finalQuery);
     if (finalQuery) {
-        if(vendorId){
-            // user belongs to a vendor and has both primary and secondary orgId.
+        // if(vendorId){
+        //     // user belongs to a vendor and has both primary and secondary orgId.
+        //     sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
+        // }
+        // else{
             sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
-        }
-        else{
-            sqlString = `select "vehicleNumber" from "Vehicle" where "orgId"=? and ("vehicleNumber" in (${finalQuery}) or "vendorId" in (${finalQuery}) or "vehicleGroup" in (${finalQuery}) )`;
-        }
+        // }
 
         const [results] = await sequelize.query(`${sqlString}`, {
             replacements: [orgId],
@@ -471,16 +476,10 @@ export const fetchVehicleAndGeoCountByOrganization = async (orgId: any) => {
     return allVehicle;
 }
 
-export const fetchAllVehicleCount = async (orgId: string, whereCondition: string) => {
+export const fetchAllVehicleCount = async (orgId: string, vendorIdCondition: string, whereCondition: string) => {
+    const sqlString = `select count(1) as result from "Vehicle" where "orgId"=? ${vendorIdCondition} ${whereCondition}`;
     if (orgId) {
-        // const result = query(collection(firebaseDb, vehicleCollection), where("organization", "==", org));
-        // const querySnapshot = await getDocs(result);
-        // querySnapshot.forEach((doc) => {
-        //     const vehicle = doc.data();
-        //     data.push(vehicle.vehicleNumber);
-        // });
-
-        const [results] = await sequelize.query(`select count(1) as result from "Vehicle" where "orgId"=? ${whereCondition}`, {
+        const [results] = await sequelize.query(sqlString, {
             replacements: [orgId],
             Model: Vehicle,
             mapToModel: true,
