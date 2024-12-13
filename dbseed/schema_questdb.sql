@@ -49,7 +49,9 @@
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
 
-
+    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleStatus TYPE VARCHAR;
+    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleGroup TYPE VARCHAR;
+    ALTER TABLE VehicleTelemetryReport RENAME COLUMN owner to vendor;
 
 
 /*query to pull yesterday's TIFFA report*/

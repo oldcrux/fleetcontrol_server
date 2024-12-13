@@ -1,4 +1,4 @@
-import { logDebug, logError } from "../util/Logger";
+import { logDebug, logError, logInfo } from "../util/Logger";
 import { fetchAppConfigByConfigKey } from "./AppConfigController";
 const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
@@ -166,7 +166,6 @@ async function generateGeofenceExcel(reportName: any, reportData: any) {
 
 async function sendEmail(filePath: any) {
     try {
-
         const subscribers = await fetchAppConfigByConfigKey('ReportEmailSubscribers');
         logDebug(`NotificationController:generateExcel: mail subscribers`, subscribers);
 
@@ -198,7 +197,7 @@ async function sendEmail(filePath: any) {
         };
 
         await transporter.sendMail(mailOptions);
-        logDebug('NotificationController:sendEmail: Email sent successfully!');
+        logInfo(`NotificationController:sendEmail: ${filePath} Email sent successfully!`);
 
         await fileCleanup(filePath);
     } catch (error) {
