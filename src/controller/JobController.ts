@@ -131,7 +131,7 @@ const tcpMessageWorker = new Worker('tcpMessageQueue', async (job) => {
 const reportGenerationWorker = new Worker('reportGenerationQueue', async (job) => {
     logDebug('Processing reportGenerationQueue job:', job.name, job.data);
 
-    await triggerAllReportWrapper(job.data.orgId);
+    triggerAllReportWrapper(job.data.orgId);
 }, { connection });
 
 // Worker to process jobs from the second queue
