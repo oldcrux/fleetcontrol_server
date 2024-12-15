@@ -1837,7 +1837,10 @@ const fetchVehicleTelemetryReportByReportName = async (reportName: any) => {
 
     const sqlString = `select reportName, orgId, reportType, vehicleNumber, geofenceLocationGroupName, 
         scheduleStartTime, vendor, vehicleStatus, vehicleGroup,
-        to_timezone(cast(actualStartTime as timestamp), 'Asia/Kolkata') as actualStartTime,  assignedGeofenceLocationCount, touchedLocationCount, mileage
+        CASE 
+    WHEN actualStartTime = '' THEN null
+    ELSE to_timezone(cast(actualStartTime AS timestamp), 'Asia/Kolkata') 
+    END AS actualStartTime,  assignedGeofenceLocationCount, touchedLocationCount, mileage
         from ${vehicleTelemetryReportTable} where reportName='${reportName}' order by actualStartTime desc;`;
 
     logDebug(`VehicleTelemetryDataController:fetchVehicleTelemetryReportByReportName: sqlString:`, sqlString);
