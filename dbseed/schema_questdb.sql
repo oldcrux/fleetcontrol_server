@@ -49,8 +49,8 @@
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
 
-    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleStatus TYPE VARCHAR;
-    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleGroup TYPE VARCHAR;
+    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleStatus VARCHAR;
+    ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleGroup VARCHAR;
     ALTER TABLE VehicleTelemetryReport RENAME COLUMN owner to vendor;
 
 
