@@ -240,33 +240,37 @@ export const fetchGeofence = async (req: Request, res: Response) => {
     const { encodedViewport, query, orgId, vehicles } = req.query;
     logDebug(`GeofenceController:fetchGeofence: Entering with query: and orgId:`, req.query, orgId);
 
-    let whereClauses = '';
-
     const start = parseInt(req.query.start as string) || 0;
     const size = parseInt(req.query.size as string) || 0;
     // const filters = JSON.parse(req.query.filters || '[]');
-    // const globalFilter = req.query.globalFilter || '';
+    const globalFilter = req.query.globalFilter || '';
     // const sorting = JSON.parse(req.query.sorting || '[]');
     logDebug(`GeofenceController:fetchGeofence: Entering with orgId: ${orgId}`, orgId);
     // logDebug(`GeofenceController:fetchGeofence: request received`, req.query);
 
+    let whereCondition = '';
+    if (globalFilter) {
+        whereCondition = ` and ("tag" like '%${globalFilter}%' 
+                                    or "geofenceLocationGroupName" like '%${globalFilter}%'  )`;
+    }
+
     try{
-        const count = await fetchGeofenceCount(orgId);
+        const count = await fetchGeofenceCount(orgId as string, whereCondition);
 
-        let begin = 0;
-        let end = 0;
+        // let begin = 0;
+        // let end = 0;
 
-        begin = count?.count - (start ?? 0);
-        end = begin - (size ?? 0);
+        // begin = count?.count - (start ?? 0);
+        // end = begin - (size ?? 0);
 
-        if (begin < 0) {
-            begin = 0;
-        }
-        if (end < 0) {
-            end = 0;
-        }
+        // if (begin < 0) {
+        //     begin = 0;
+        // }
+        // if (end < 0) {
+        //     end = 0;
+        // }
 
-        const sqlString = `select * from "GeofenceLocation" where "orgId"='${orgId}' limit ${size} OFFSET ${start}  `;
+        const sqlString = `select * from "GeofenceLocation" where "orgId"='${orgId}' ${whereCondition} limit ${size} OFFSET ${start}  `;
 
         logDebug(`GeofenceController:fetchGeofence: query formed:`, sqlString);
         const [results] = await sequelize.query(sqlString, {
@@ -283,8 +287,8 @@ export const fetchGeofence = async (req: Request, res: Response) => {
     }
 }
 
-const fetchGeofenceCount = async (orgId: any) => {
-    const sqlString = `select count(*) from "GeofenceLocation" where "orgId"='${orgId}' `;
+const fetchGeofenceCount = async (orgId: string, whereCondition: string) => {
+    const sqlString = `select count(*) from "GeofenceLocation" where "orgId"='${orgId}' ${whereCondition} `;
     logDebug(`GeofenceController:fetchGeofenceCount: query formed:`, sqlString);
     const [results] = await sequelize.query(sqlString, {
         type: QueryTypes.RAW,
@@ -376,6 +380,16 @@ export const searchMinMaxScheduleArrivalTimeByGroup = async (orgId: any, geofenc
         replacements: [orgId, geofenceLocationGroupName],
         type: QueryTypes.RAW,
     });
+
+    // TODO might need to move to below query.
+    // const [results] = await sequelize.query(`select min("scheduleArrival") as "minArrivalTime", max("scheduleArrival") as "maxArrivalTime", "center", "scheduleArrival", "tag" 
+    //     from "GeofenceLocation" gl 
+    //     where "orgId"=? and "geofenceLocationGroupName" = ? 
+    //     group by "center" , "scheduleArrival", "tag"`, 
+    //     {replacements: [orgId, geofenceLocationGroupName],
+    //     type: QueryTypes.RAW,
+    // });
+
     logDebug(`GeofenceController:searchMinMaxScheduleArrivalTimeByGroup: Response, geofenceLocationGroupName, minArrivalTime, maxArrivalTime`, results[0]);
     return results[0];
 }
