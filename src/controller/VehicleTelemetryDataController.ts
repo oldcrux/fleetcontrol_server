@@ -1306,6 +1306,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
     const reportName = orgId + '_geofence_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution started at: ${executionStartTime}`);
     // #1: Fetch all vehicles from mysql Vehicle table
+    const localSender = Sender.fromConfig(conf);
     const allVehicles = await fetchVehicleAndGeoByOrganization(orgId);
     logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Vehicles fetched:`, allVehicles);
 
@@ -1370,7 +1371,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                         }
                     }
 
-                    const scheduleArrivalTime = geofence.scheduleArrival;
+                    const scheduleArrivalTime = geofence.scheduleArrival? geofence.scheduleArrival: null;
                     const timeSpent = time?.timespent ? Number(time?.timespent) : 0;
                     const arrivalTime = time?.mintime ? String(time?.mintime) : null;
                     const departureTime = time?.maxtime ? String(time?.maxtime) : null;
@@ -1380,7 +1381,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                     //  Total records - Number of Vehicles x number of geofence locations
                     // logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Inserting into geofence report table`, geofence.tag, timeSpent, scheduleArrival, arrivalTime, departureTime);
                     if (arrivalTime && departureTime) {
-                        const row = await sender.table(`${geofenceTelemetryReportTable}`)
+                        const row = await localSender.table(`${geofenceTelemetryReportTable}`)
                             .symbol('reportName', reportName)
                             .symbol('orgId', orgId)
                             .symbol('vehicleNumber', vehicle.vehicleNumber)
@@ -1394,7 +1395,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                             .atNow();
                     }
                     else {
-                        const row = await sender.table(`${geofenceTelemetryReportTable}`)
+                        const row = await localSender.table(`${geofenceTelemetryReportTable}`)
                             .symbol('reportName', reportName)
                             .symbol('orgId', orgId)
                             .symbol('vehicleNumber', vehicle.vehicleNumber)
@@ -1409,7 +1410,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
             }
         }
     }
-    await sender.flush(); //Flushing explicitly because, this report will be used by vehicleTelemetryReport immediately.
+    await localSender.flush(); //Flushing explicitly because, this report will be used by vehicleTelemetryReport immediately.
 
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
@@ -1434,7 +1435,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const executionStartTime = Date.now();
     const reportName = orgId + '_vehicle_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution started at: ${executionStartTime}`);
-
+    const localSender = Sender.fromConfig(conf);
     /**
      * Vehicle report table -
      *          report Type = day/month
@@ -1500,7 +1501,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
         const geofenceLocationGroupName = vehicle.geofenceLocationGroupName ? vehicle.geofenceLocationGroupName : "";
         const vehicleGroup = vehicle.vehicleGroup ? vehicle.vehicleGroup : "";
 
-        const row = await sender.table(`${vehicleTelemetryReportTable}`)
+        const row = await localSender.table(`${vehicleTelemetryReportTable}`)
             .symbol('reportName', reportName)
             .symbol('orgId', orgId)
             .symbol('reportType', 'day')
@@ -1517,7 +1518,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
             .atNow();
 
     }
-    await sender.flush();
+    await localSender.flush();
 
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
