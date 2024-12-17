@@ -61,3 +61,10 @@ from VehicleTelemetry where ignition=1 and
 and to_timezone(timestamp, 'Asia/Kolkata') between  dateadd ('h', -24, date_trunc('day', to_timezone  (now(), 'Asia/Kolkata')))          
                  and date_trunc('day', to_timezone  (now(), 'Asia/Kolkata')) 
 GROUP BY vehicleNumber ;
+
+
+ALTER TABLE GeofenceTelemetryReport DROP PARTITION where timestamp < to_timezone(dateadd ('d', -30, date_trunc('day', now())) , 'Asia/Kolkata') ;
+ALTER TABLE VehicleTelemetryReport DROP PARTITION where timestamp < to_timezone(dateadd ('d', -30, date_trunc('day', now())) , 'Asia/Kolkata') ;
+ALTER TABLE VehicleTelemetry DROP PARTITION where timestamp < to_timezone(dateadd ('d', -10, date_trunc('day', now())) , 'Asia/Kolkata') ;
+ALTER TABLE VehicleTelemetryTcpMessage DROP PARTITION where timestamp < to_timezone(dateadd ('d', -10, date_trunc('day', now())) , 'Asia/Kolkata') ;
+
