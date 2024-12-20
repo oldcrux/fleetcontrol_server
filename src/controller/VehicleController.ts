@@ -91,7 +91,8 @@ export const bulkCreateVehicle = async (req: Request, res: Response) => {
                 if (!vehicle.vehicleNumber
                     || !vehicle.orgId
                     || !vehicle.serialNumber
-                    || !vehicle.primaryPhoneNumber) {
+                    || !vehicle.primaryPhoneNumber
+                    || !vehicle.status) {
                     errorVehicle.push(`Incomplelete Vehicle payload ${vehicle.vehicleNumber}`);
 
                     logError(`VehicleController: bulkCreateVehicle. Vehicle data Error`);

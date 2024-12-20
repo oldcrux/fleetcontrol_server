@@ -50,6 +50,8 @@ alter table "Users" rename column "orgId" to "primaryOrgId";
 alter table "Users"  add column "secondaryOrgId" varchar(20);
 alter table "Users"  add column "role" varchar(20) not null default 'view'; -- system, admin, view
 
+alter table "Users" alter column "password" drop not null ;
+
 CREATE TABLE "GeofenceLocation" (
 	id serial4 NOT NULL,
 	"geofenceType" varchar(20) NOT NULL,
