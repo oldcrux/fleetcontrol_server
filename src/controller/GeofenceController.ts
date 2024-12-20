@@ -323,8 +323,8 @@ export const searchGeofenceLocationsByGroup = async (orgId: any, geofenceGroup: 
 // }
 
 export const deleteGeofenceLocationByTag = async (req: Request, res: Response) => {
-    const { orgId, tag, id } = req.body;
-    logDebug(`GeofenceController:deleteGeofenceLocationByTag:Entering with tag=${tag}, id=${id} on orgId=${orgId}`);
+    const { userId, orgId, tag, id } = req.body;
+    logInfo(`GeofenceController:deleteGeofenceLocationByTag:Entering with tag=${tag}, user=${userId} on orgId=${orgId}`, req.body);
 
     let whereCondition = '';
     if(tag){

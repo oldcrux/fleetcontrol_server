@@ -20,8 +20,7 @@ export const createUser = async (req: Request, res: Response) => {
         || !req.body.city
         || !req.body.state
         || !req.body.country
-        || !req.body.zip
-        || !req.body.password) {
+        || !req.body.zip) {
         res.status(400).json({ error: 'incomplelete User payload' });
     }
     // TODO make sure userId is unique
@@ -32,7 +31,10 @@ export const createUser = async (req: Request, res: Response) => {
 
     //TODO add role validation. if role not in view, admin, system
 
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    let hashedPassword ='';
+    if(req.body.password){
+        hashedPassword = await bcrypt.hash(req.body.password, 10);
+    }
     try {
         newUser = await User.create({
             userId: req.body.userId,
@@ -85,6 +87,11 @@ export const updateUser = async (req: Request, res: Response) => {
     // If the use has secondary orgId (i.e. primary='vendorOrd') set the role to view by default.  Will not give admin access to the vendors.
     const role = req.body.secondaryOrgId? 'view' : req.body.role;
 
+    let hashedPassword ='';
+    if(req.body.password){
+        hashedPassword = await bcrypt.hash(req.body.password, 10);
+    }
+    
     try {
         user = await User.update({
             userId: req.body.userId,
@@ -101,7 +108,8 @@ export const updateUser = async (req: Request, res: Response) => {
             state: req.body.state,
             country: req.body.country,
             zip: req.body.zip,
-            isActive: true,
+            password: hashedPassword,
+            isActive: req.body.isActive,
             createdBy: req.body.createdBy,
         },
         { where: { userId: req.body.userId } });
@@ -130,8 +138,8 @@ export const searchUser = async (req: Request, res: Response) => {
 export const searchUserByUserId = async (req: Request, res: Response) => {
     const userId = req.query.userId;
     logDebug(`UserController:searchUserByUserId: fetching User: ${userId}`, userId);
-    const [user] = await sequelize.query(`select * from "Users" where "userId" = ? `, {
-        replacements: [userId],
+    const [user] = await sequelize.query(`select * from "Users" where "userId" = ? or "email"=? `, {
+        replacements: [userId, userId],
         Model: User,
         mapToModel: true,
         type: QueryTypes.SELECT

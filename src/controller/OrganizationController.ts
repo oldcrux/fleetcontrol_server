@@ -175,8 +175,7 @@ export const fetchVendors = async (req: Request, res: Response) => {
     }
     let whereCondition = '';
     if (globalFilter) {
-        whereCondition = ` and ("orgId" like '%${globalFilter}%' 
-                                    or "organizationName" like '%${globalFilter}%' 
+        whereCondition = ` and ( "organizationName" like '%${globalFilter}%' 
                                     or "primaryContactName" like '%${globalFilter}%' 
                                     or "primaryPhoneNumber" like '%${globalFilter}%' 
                                     or "primaryPhoneNumber" like '%${globalFilter}%' 

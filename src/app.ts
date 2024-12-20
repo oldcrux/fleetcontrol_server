@@ -19,6 +19,8 @@ import { postTCPMessageToQueue } from "./controller/JobController";
 import { logDebug, logError, logger, logInfo, logWarn } from "./util/Logger";
 import { redisPool } from "./util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./controller/AppConfigController";
+import validateToken from "./middlewares";
+import { searchUserByUserId } from "./controller/UserController";
 
 require("dotenv").config();
 // const { InfluxDB, HttpError, Point } = require("@influxdata/influxdb-client");
@@ -49,9 +51,12 @@ const numCPUs = os.cpus().length;
 // app.use(bodyParser.json());
 app.use(express.json({ limit: '10mb' })); 
 const corsOptions = {
-  origin: true, // Replace with your frontend URL
+  // origin: true, // Replace with your frontend URL
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://fleetcontrol.oldcrux.com' // Production URL
+    : 'http://localhost:3000', 
   methods: ['GET', 'POST'], // Allowed methods
-  allowedHeaders: ['Content-Type'], // Allowed headers
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
   credentials: true // Allow credentials (cookies, authorization headers, etc.)
 };
 app.use(cors(corsOptions));
@@ -106,7 +111,10 @@ else {
   app.get("/", (req: Request, res: Response) => {
     res.send("Welcome to Fleet Control Center");
   });
+  
+  app.get('/node/api/user/search', searchUserByUserId);
 
+  app.use(validateToken);
   app.use('/node/api/organization', organizationRoutes);
   app.use('/node/api/vendor', vendorRoutes);
   app.use('/node/api/user', userRoutes);
