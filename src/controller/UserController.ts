@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { firebaseDb } from "../util/firebasedb";
 import User from '../dbmodel/user';
-import { logDebug, logger, logInfo } from '../util/Logger';
+import { logDebug, logError, logger, logInfo } from '../util/Logger';
 import sequelize from '../util/sequelizedb';
 import { QueryTypes, ValidationError } from 'sequelize';
 import bcrypt from 'bcryptjs';
@@ -15,6 +15,7 @@ export const createUser = async (req: Request, res: Response) => {
         || !req.body.lastName
         || !req.body.primaryOrgId
         || !req.body.email
+        || !req.body.authType
         || !req.body.phoneNumber
         || !req.body.address1
         || !req.body.city
@@ -31,10 +32,11 @@ export const createUser = async (req: Request, res: Response) => {
 
     //TODO add role validation. if role not in view, admin, system
 
-    let hashedPassword ='';
-    if(req.body.password){
-        hashedPassword = await bcrypt.hash(req.body.password, 10);
-    }
+    // let hashedPassword;
+    // if(req.body.authType==='db' && req.body.password){
+    //     hashedPassword = await bcrypt.hash(req.body.password, 10);
+    // }
+
     try {
         newUser = await User.create({
             userId: req.body.userId,
@@ -43,6 +45,9 @@ export const createUser = async (req: Request, res: Response) => {
             primaryOrgId: req.body.primaryOrgId,
             secondaryOrgId: req.body.secondaryOrgId,
             role: role,
+            authType: req.body.authType,
+            password: req.body.password,
+            isActive: true,
             email: req.body.email,
             phoneNumber: req.body.phoneNumber,
             address1: req.body.address1,
@@ -51,11 +56,10 @@ export const createUser = async (req: Request, res: Response) => {
             state: req.body.state,
             country: req.body.country,
             zip: req.body.zip,
-            password: hashedPassword,
-            isActive: true,
             createdBy: req.body.createdBy,
         })
     } catch (error) {
+        logError(`userController: createUser: Error creating User`, error);
         if (error instanceof ValidationError) {
             const messages = error.errors.map(err => err.message);
             res.status(400).json({ messages });
@@ -76,6 +80,7 @@ export const updateUser = async (req: Request, res: Response) => {
         || !req.body.lastName
         || !req.body.primaryOrgId
         || !req.body.email
+        || !req.body.authType
         || !req.body.phoneNumber
         || !req.body.address1
         || !req.body.city
@@ -84,13 +89,14 @@ export const updateUser = async (req: Request, res: Response) => {
         || !req.body.zip) {
         res.status(400).json({ error: 'incomplelete User payload' });
     }
+    logInfo(`userController: updateUser: updating User:`, req.body);
     // If the use has secondary orgId (i.e. primary='vendorOrd') set the role to view by default.  Will not give admin access to the vendors.
     const role = req.body.secondaryOrgId? 'view' : req.body.role;
 
-    let hashedPassword ='';
-    if(req.body.password){
-        hashedPassword = await bcrypt.hash(req.body.password, 10);
-    }
+    // let hashedPassword;
+    // if(req.body.authType==='db' && req.body.password){
+    //     hashedPassword = await bcrypt.hash(req.body.password, 10);
+    // }
     
     try {
         user = await User.update({
@@ -108,12 +114,14 @@ export const updateUser = async (req: Request, res: Response) => {
             state: req.body.state,
             country: req.body.country,
             zip: req.body.zip,
-            password: hashedPassword,
+            authType: req.body.authType,
+            // password: hashedPassword,
             isActive: req.body.isActive,
             createdBy: req.body.createdBy,
         },
         { where: { userId: req.body.userId } });
     } catch (error) {
+        logError(`userController: updateUser: Error updating User`, error);
         if (error instanceof ValidationError) {
             const messages = error.errors.map(err => err.message);
             res.status(400).json({ messages });
@@ -158,9 +166,10 @@ export const updatePassword = async (req: Request, res: Response) => {
     }
     const orgId = req.body.orgId;
     const userId = req.body.userId;
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const password = req.body.password;
+    // const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-    const sqlString = `update "Users" set "password"='${hashedPassword}' where "primaryOrgId"='${orgId}' and "userId"='${userId}' `;
+    const sqlString = `update "Users" set "password"='${password}' where "primaryOrgId"='${orgId}' and "userId"='${userId}' `;
     const [user] = await sequelize.query(sqlString, {
         Model: User,
         mapToModel: true,
@@ -177,7 +186,7 @@ export const updatePassword = async (req: Request, res: Response) => {
  * can delete any view user, where secondary org Id = bmc)
  */
 export const deleteUser = async (req: Request, res: Response) => {
-    logInfo(`OrganizationController:deleteUser: User delete request`, req.body);
+    logInfo(`UserController:deleteUser: User delete request`, req.body);
     const userId = req.body.userId;
     const secondaryOrgId = req.body.secondaryOrgId;
     const deletedBy = req.body.deletedBy;
@@ -188,7 +197,7 @@ export const deleteUser = async (req: Request, res: Response) => {
             userId:userId,
         }
     });
-    logInfo(`OrganizationController:deleteUser: User deleted:${userId}, with secondary orgId:${secondaryOrgId}`, userId, secondaryOrgId);
+    logInfo(`UserController:deleteUser: User deleted:${userId}, with secondary orgId:${secondaryOrgId}`, userId, secondaryOrgId);
     res.status(200).json(result);
 }
 
