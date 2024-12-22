@@ -24,7 +24,7 @@ ALTER TABLE "Organization" ADD COLUMN "orgType" varchar(20) NOT null default 'pr
 ALTER TABLE "Organization" ADD COLUMN "primaryOrgId" varchar(20);
 
 CREATE TABLE "Users" (
-	"userId" varchar(20) NOT NULL,
+	"userId" varchar(50) NOT NULL,
 	"firstName" varchar(50) NOT NULL,
 	"lastName" varchar(50) NOT NULL,
 	"primaryOrgId" varchar(20) NOT NULL,
@@ -38,7 +38,8 @@ CREATE TABLE "Users" (
 	state varchar(20) NOT NULL,
 	country varchar(20) NOT NULL,
 	zip varchar(20) NOT NULL,
-	"password" varchar(255) NOT NULL,
+	"authType" varchar(20) NOT NULL,
+	"password" varchar(255) NULL,
 	"isActive" BOOLEAN DEFAULT TRUE,
 	"createdBy" varchar(20) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
@@ -51,6 +52,8 @@ alter table "Users"  add column "secondaryOrgId" varchar(20);
 alter table "Users"  add column "role" varchar(20) not null default 'view'; -- system, admin, view
 
 alter table "Users" alter column "password" drop not null ;
+alter table "Users"  add column "authType" varchar(20) not null default 'db'; -- db, others
+alter table "Users"  alter column "userId" SET DATA TYPE VARCHAR(50); -- db, others
 
 CREATE TABLE "GeofenceLocation" (
 	id serial4 NOT NULL,

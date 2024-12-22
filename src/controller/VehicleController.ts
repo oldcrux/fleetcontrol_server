@@ -305,7 +305,7 @@ export const fetchAllVehicleByOrganization = async (req: Request, res: Response)
  */
 export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
     const executionStartTime = Date.now();
-    logDebug(`VehicleController:fetchAllVehicleBySerialNumber. Fetching vehicles with serialNumber: ${serialNumber}`);
+    logDebug(`VehicleController:fetchAllVehicleBySerialNumber. fetching vehicles with serialNumber: ${serialNumber}`);
     let vehicleNumber = await redisPool.getConnection().get(serialNumber);
     if (!vehicleNumber) {
         logDebug(`VehicleController:fetchAllVehicleBySerialNumber: fetching vehicle from DB with serialNumber ${serialNumber}`);
@@ -321,6 +321,11 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
         if (allVehicle.length > 1) {
             logError(`VehicleController:fetchAllVehicleBySerialNumber: more than 1 vehicle fetched for the serialNumber`, allVehicle);
         }
+        if(allVehicle.length === 0){
+            logError(`VehicleController:fetchAllVehicleBySerialNumber: No vehicles fetched for the serial number ${serialNumber}`);
+            return;
+        }
+
         vehicleNumber = allVehicle[0].vehicleNumber;
 
         // add serialNumber and vehicleNumber to redis cache
