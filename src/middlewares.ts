@@ -27,21 +27,23 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
     }
 
     try {
-        if (issuer.includes("oldcruxlocaldatabase")) {
+        if (issuer.includes("oldcruxdb")) {
             try{
             const payload = jwt.verify(token, process.env.JWT_SECRET as string);
             // console.log(`db password token`,payload)
             next();
         } catch (error) {
-            console.log(error);
-            // if (error.name === 'TokenExpiredError') {
-            //     res.status(500).json({ message: "Token has expired" });
-            // } else if (error.name === 'JsonWebTokenError') {
-            //     res.status(500).json({ message: "Invalid token" });
-            // } else {
-            //     res.status(500).json({ message: "Token verification failed" });
-            // }
-            res.status(500).json({ message: "Invalid token" });
+            // console.log(error);
+            if ((error as { name?: string })?.name === 'TokenExpiredError') {
+                res.status(500).json({ message: "Token has expired" });
+                return;
+            } else if ((error as { name?: string })?.name === 'JsonWebTokenError') {
+                res.status(500).json({ message: "Invalid token" });
+                return;
+            } else {
+                res.status(500).json({ message: "Token verification failed" });
+                return;
+            }
           }
         }
         else if (issuer.includes("accounts.google.com")) {
