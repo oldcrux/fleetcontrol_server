@@ -1361,7 +1361,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                                 pointWithinRadius as number //meters
                             );
 
-                            if (matchTrueFalse) {
+                            if (matchTrueFalse && scheduleArrival) {
                                 logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport:MATCHED - eachTelemetry.lat: ${eachTelemetry.latitude}, eachTelemetry.lng: ${eachTelemetry.longitude}, geofence.center.lat: ${centerlatLng.lat}, geofence.center.lng ${centerlatLng.lng}`);
                                 //TODO calculate time spend at this location
                                 // console.log(`geofence`, geofence);
@@ -1371,10 +1371,11 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                         }
                     }
 
-                    const scheduleArrivalTime = geofence.scheduleArrival? geofence.scheduleArrival: null;
-                    const timeSpent = time?.timespent ? Number(time?.timespent) : 0;
-                    const arrivalTime = time?.mintime ? String(time?.mintime) : null;
-                    const departureTime = time?.maxtime ? String(time?.maxtime) : null;
+                    const scheduleArrivalTime = geofence.scheduleArrival? geofence.scheduleArrival: '0';
+                    const timeSpent = time?.timespent !== null && time?.timespent !== undefined ? Number(time.timespent) : 0;
+                    const arrivalTime = time?.mintime !== null && time?.mintime !== undefined ? String(time.mintime) : '0';
+                    const departureTime = time?.maxtime !== null && time?.maxtime !== undefined ? String(time.maxtime) : '0';
+
                     // console.log(`time value returned:`, time);
                     // console.log(`arrival/departure time value returned:`, arrivalTime, departureTime);
                     // try {
