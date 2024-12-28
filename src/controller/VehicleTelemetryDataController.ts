@@ -1,7 +1,7 @@
 import express, { Request, response, Response } from "express";
 import axios, { AxiosError } from 'axios';
 import { fetchAllVehicleByOrganization, fetchAllVehicleByOrganization2, fetchAllVehicleBySerialNumber, fetchVehicleAndGeoByOrganization, fetchVehicleAndGeoCountByOrganization, searchVehicle } from "./VehicleController";
-import { searchGeofence, searchGeofenceLocationsByGroup, searchMinMaxScheduleArrivalTimeByGroup } from "./GeofenceController";
+import { searchGeofence, searchGeofenceLocationsByGroup, searchMinMaxScheduleArrivalTimeByGroup, updateGeofenceLocationTouchFlag } from "./GeofenceController";
 import { isPointWithinRadius } from "geolib";
 import sequelize from "../util/sequelizedb";
 import { QueryTypes } from "sequelize";
@@ -10,11 +10,9 @@ import { createReportJob } from "./JobController";
 import { parseMessage } from "../parser/iTriangleTS101parser";
 import * as dotenv from 'dotenv';
 import { logDebug, logError, logger, logInfo, logWarn } from "../util/Logger";
-import Vehicle from "../dbmodel/vehicle";
 import { redisPool } from "../util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./AppConfigController";
-import { isNullOrUndefinedOrNaN } from "../util/CommonUtil";
-import { report } from "process";
+import { getGeoHashPrecisionValue, isNullOrUndefinedOrNaN } from "../util/CommonUtil";
 import { notifyViaEmail } from "./NotificationController";
 dotenv.config();
 
@@ -25,9 +23,9 @@ const questdbAutoFlushRows = process.env.QUEST_DB_AUTO_FLUSH_ROWS; // Defaults t
 const questdbAutoFlushInterval = process.env.QUEST_DB_AUTO_FLUSH_INTERVAL; // in milliseconds. Defaults to 1000
 
 const sseDataPushInterval = process.env.SSE_DATA_PUSH_INTERVAL ? process.env.SSE_DATA_PUSH_INTERVAL : 5000;
-const pointWithinRadius = process.env.POINT_WITHIN_RADIUS_ACCURACY_IN_METERS ? process.env.POINT_WITHIN_RADIUS_ACCURACY_IN_METERS : 50;
+const pointWithinRadius = process.env.POINT_WITHIN_RADIUS_ACCURACY_IN_METERS ? process.env.POINT_WITHIN_RADIUS_ACCURACY_IN_METERS : 30;
 const scheduleArrivalWindow = process.env.GEOFENCE_SCHEDULE_ARRIVAL_WINDOW ? process.env.GEOFENCE_SCHEDULE_ARRIVAL_WINDOW : 30; // default 30mins window
-const geohashPrecision = process.env.QUESTDB_GEOHASH_PRECISION ? process.env.QUESTDB_GEOHASH_PRECISION : 30; //default 30
+// const geohashPrecision = process.env.QUESTDB_GEOHASH_PRECISION ? process.env.QUESTDB_GEOHASH_PRECISION : 30; //default 30
 
 //const conf = "http::addr=localhost:9000;username=admin;password=quest;"
 const conf = `http::addr=${questdbHost};username=${questdbUser};password=${questdbPassword};auto_flush_rows=${questdbAutoFlushRows};auto_flush_interval=${questdbAutoFlushInterval}`
@@ -154,24 +152,11 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
         await redisPool.getConnection().del(`${vehicleOff}`);
     }
 
-    const vehicleNumber = await fetchAllVehicleBySerialNumber(parsedMessage.serialNumber);
-    // const geohash = await makeGeohash(parsedMessage.latitude, parsedMessage.longitude);
-    // logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: persisting for vehicle Number: ${vehicleNumber}`);
-    // const vehicleTelemetryData = await sender.table(`${vehicleTelemetryTable}`)
-    //     .symbol('vehicleNumber', vehicleNumber)
-    //     .symbol('serialNumber', parsedMessage.serialNumber)
-    //     .stringColumn('geohash', geohash)
-    //     .floatColumn('speed', parsedMessage.speed)
-    //     .floatColumn('latitude', parsedMessage.latitude)
-    //     .floatColumn('longitude', parsedMessage.longitude)
-    //     .floatColumn('ignition', parsedMessage.ignition)
-    //     .floatColumn('odometer', parsedMessage.odometer)
-    //     .floatColumn('headingDirectionDegree', parsedMessage.headingDirectionDegree)
-    //     .atNow();
-    // await sender.flush(); // TODO check why the vehicleTelemetryTable data is not being flushed without this statement.
+    const vehicle: any = await fetchAllVehicleBySerialNumber(parsedMessage.serialNumber);
+    const vehicleNumber = vehicle!.vehicleNumber;
 
     const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, overspeed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp) 
-    VALUES ('${vehicleNumber}', '${parsedMessage.serialNumber}', ${parsedMessage.speed}, ${parsedMessage.overspeed}, ${parsedMessage.latitude}, ${parsedMessage.longitude}, make_geohash(${parsedMessage.latitude}, ${parsedMessage.longitude}, ${geohashPrecision}), ${parsedMessage.ignition}, ${parsedMessage.odometer}, ${parsedMessage.headingDirectionDegree}, now() )`;
+    VALUES ('${vehicleNumber}', '${parsedMessage.serialNumber}', ${parsedMessage.speed}, ${parsedMessage.overspeed}, ${parsedMessage.latitude}, ${parsedMessage.longitude}, make_geohash(${parsedMessage.latitude}, ${parsedMessage.longitude}, ${pointWithinRadius}), ${parsedMessage.ignition}, ${parsedMessage.odometer}, ${parsedMessage.headingDirectionDegree}, now() )`;
 
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: insertQuery:`, insertQuery);
     const response = await axios.get(
@@ -179,11 +164,24 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     );
     const json = await response.data;
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: vehicle telemetry data persisted:`, parsedMessage.serialNumber, vehicleNumber);
+
+    await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, parsedMessage.longitude, parsedMessage.latitude);
 }
 
-const makeGeohash = async (latitude: any, longitude: any) => {
+export const updateGeofenceLocation = async (vehicleNumber: string, orgId: string, longitude: any, latitude: any) => {
+    logDebug(`VehicleTelemetryDataController:updateGeofenceLocation: updating Geofence Location Touch flag with longitude: ${longitude},  latitude: ${latitude}`);
+    // const geohash = await makeGeohash(latitude, longitude, orgId);
+    await updateGeofenceLocationTouchFlag(vehicleNumber, orgId, longitude, latitude);
+    logInfo(`VehicleTelemetryDataController:updateGeofenceLocation: updated Geofence Location Touch flag`);
+}
+
+// TODO *** NOT USED ***
+export const makeGeohash = async (latitude: any, longitude: any, orgId: string, radius?: any) => {
     logDebug(`VehicleTelemetryDataController: makeGeohash: Entering with latitude: ${latitude}, longitude: ${longitude}`);
     let geohash: any;
+
+    const geohashPrecision = getGeoHashPrecisionValue(radius, orgId);
+    //TODO check for the config (yet to be created).  That will define whether to use radius or a standard precision.
     const queryString = `select make_geohash(${latitude}, ${longitude}, ${geohashPrecision})`;
 
     const response = await axios.get(
@@ -223,11 +221,14 @@ export const vehicleTelemetryDataIngest = async (req: Request, res: Response) =>
         try {
             // add rows to the buffer of the sender
             //const row = await sender.table('location')
-            const vehicleNumber = await fetchAllVehicleBySerialNumber(req.body.serialNumber);
+            // const vehicleNumber = await fetchAllVehicleBySerialNumber(req.body.serialNumber);
+            const vehicle: any = await fetchAllVehicleBySerialNumber(req.body.serialNumber);
+            const vehicleNumber = vehicle.vehicleNumber;
+
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: persisting for vehicle Number: ${vehicleNumber}`);
 
             const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp) 
-    VALUES ('${vehicleNumber}', '${serialNumber}', ${speed},  ${latitude}, ${longitude}, make_geohash(${latitude}, ${longitude}, ${geohashPrecision}), ${ignition}, ${odometer}, ${headingDirectionDegree}, now() )`;
+    VALUES ('${vehicleNumber}', '${serialNumber}', ${speed},  ${latitude}, ${longitude}, make_geohash(${latitude}, ${longitude}, ${pointWithinRadius}), ${ignition}, ${odometer}, ${headingDirectionDegree}, now() )`;
 
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: insertQuery:`, insertQuery);
             const response = await axios.get(
@@ -247,6 +248,8 @@ export const vehicleTelemetryDataIngest = async (req: Request, res: Response) =>
 
             // await sender.flush();
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: vehicle telemetry data persisted:`, json);
+
+            await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, longitude, latitude);
             res.sendStatus(200);
 
         } catch (error) {
@@ -1338,11 +1341,11 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                 continue;
             }
             // Fetch geofence locations assigned to the vehicle from mysql GeofenceLocation table
-            const geofencesWithLatLng = await searchGeofenceLocationsByGroup(orgId, vehicle.geofenceLocationGroupName);
-            // logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Geofences:`, geofencesWithLatLng);
+            const geofencesWithLngLat = await searchGeofenceLocationsByGroup(orgId, vehicle.geofenceLocationGroupName);
+            // logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Geofences:`, geofencesWithLngLat);
 
             // Loop through each geofence Location
-            for (const geofence of geofencesWithLatLng) {
+            for (const geofence of geofencesWithLngLat) {
                 if (geofence.geofenceType === 'circle') {
                     const centerlatLng = JSON.parse(geofence.center);
 
@@ -1354,12 +1357,18 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                         for (const eachTelemetry of vehicleTelemetry) {
 
                             logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport:MATCHING - eachTelemetry.lat: ${eachTelemetry.latitude}, eachTelemetry.lng: ${eachTelemetry.longitude}, geofence.center.lat: ${centerlatLng.lat}, geofence.center.lng ${centerlatLng.lng}`);
-
-                            matchTrueFalse = isPointWithinRadius(
-                                { latitude: centerlatLng.lat, longitude: centerlatLng.lng },
-                                { latitude: eachTelemetry.latitude, longitude: eachTelemetry.longitude },
-                                pointWithinRadius as number //meters
-                            );
+                            logInfo(`Geofencelocation touched? GeofenceLocation.touched value=${geofence.touched}`);
+                            
+                            if(geofence.touched===true){
+                                matchTrueFalse = true;
+                            }
+                            else{
+                                matchTrueFalse = isPointWithinRadius(
+                                    { latitude: centerlatLng.lat, longitude: centerlatLng.lng },
+                                    { latitude: eachTelemetry.latitude, longitude: eachTelemetry.longitude },
+                                    pointWithinRadius as number //30 meters as default
+                                );
+                            }
 
                             if (matchTrueFalse && scheduleArrival) {
                                 logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport:MATCHED - eachTelemetry.lat: ${eachTelemetry.latitude}, eachTelemetry.lng: ${eachTelemetry.longitude}, geofence.center.lat: ${centerlatLng.lat}, geofence.center.lng ${centerlatLng.lng}`);
@@ -1654,7 +1663,6 @@ async function timeSpentAtThisLocation(vehicleNumber: any, latitude: any, longit
     logDebug(`VehicleTelemetryDataController:timeSpentAtThisLocation: fetching time spent value of vehicle at lat/lng, schedule Arrival: `, vehicleNumber, latitude, longitude, geohash, scheduleArrival);
 
     let result;
-    // const geohash = await makeGeohash(latitude, longitude);
     const scheduleArrivalInMin = timeToMinutes(scheduleArrival);
 
     const query = `SELECT datediff('m', maxtime, mintime ) as timespent, *
@@ -1959,6 +1967,17 @@ async function fetchLastKnownLocation(serialNumber: string) {
 
     return data[0];
 }
+
+// const isPointWithinRadius = async(point: any, center: any, radius: number) =>{
+//     const pointGeoHash = makeGeohash(point.latitude, point.longitude, radius);
+//     const centerGeoHash = makeGeohash(center.latitude, center.longitude, radius);
+//     if(pointGeoHash === centerGeoHash){
+//         return true;
+//     }
+//     else 
+//         return false;
+// }
+
 
 const queryQuestDB = async (query: any) => {
     logDebug(`VehicleTelemetryDataController:queryQuestDB: executing query: ${query}`, query);

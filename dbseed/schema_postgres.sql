@@ -14,7 +14,7 @@ CREATE TABLE "Organization" (
 	zip varchar(20) NOT NULL,
 	latitude float8 NULL,
 	longitude float8 NULL,
-	"createdBy" varchar(20) NULL,
+	"createdBy" varchar(50) NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "Organization_pkey" PRIMARY KEY ("orgId")
@@ -22,6 +22,7 @@ CREATE TABLE "Organization" (
 
 ALTER TABLE "Organization" ADD COLUMN "orgType" varchar(20) NOT null default 'primary'; --primary, vendor
 ALTER TABLE "Organization" ADD COLUMN "primaryOrgId" varchar(20);
+ALTER TABLE "Organization"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
 CREATE TABLE "Users" (
 	"userId" varchar(50) NOT NULL,
@@ -41,7 +42,7 @@ CREATE TABLE "Users" (
 	"authType" varchar(20) NOT NULL,
 	"password" varchar(255) NULL,
 	"isActive" BOOLEAN DEFAULT TRUE,
-	"createdBy" varchar(20) NOT NULL,
+	"createdBy" varchar(50) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "Users_email_key" UNIQUE (email),
@@ -64,20 +65,23 @@ CREATE TABLE "GeofenceLocation" (
 	"centerPoint" public.geography(point, 4326) NULL,
 	polygon text NULL,
 	"geohash" varchar(10) NULL,
+	"touched" boolean default false,
 	"geofenceLocationGroupName" varchar(100) NULL,
 	"scheduleArrival" TIME,
 	"haltDuration" int4 DEFAULT 0 NOT NULL,
 	"orgId" varchar(20) NOT NULL,
-	"createdBy" varchar(20) NOT NULL,
+	"createdBy" varchar(50) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "GeofenceLocation_pkey" PRIMARY KEY (id)
 );
+alter table "GeofenceLocation" add column "touched" boolean default false;
+ALTER TABLE "GeofenceLocation"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
 CREATE TABLE "Vehicle" (
 	"vehicleNumber" varchar(20) NOT NULL,
-	make varchar(20) NULL,
-	model varchar(20) NULL,
+	"make" varchar(20) NULL,
+	"model" varchar(20) NULL,
 	"vendorId" varchar(50) NULL,
 	"orgId" varchar(20) NOT NULL,
 	"serialNumber" varchar(20) NOT NULL,
@@ -86,7 +90,7 @@ CREATE TABLE "Vehicle" (
 	"vehicleGroup" varchar(100) NULL,
 	"geofenceLocationGroupName" varchar(100) NULL,
 	"status" varchar(20) NOT null default 'Active'; -- Active, InActive, Standby
-	"createdBy" varchar(20) NOT NULL,
+	"createdBy" varchar(50) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
 	CONSTRAINT "Vehicle_pkey" PRIMARY KEY ("vehicleNumber")
@@ -94,17 +98,19 @@ CREATE TABLE "Vehicle" (
 ALTER TABLE "Vehicle" DROP COLUMN "isActive";
 alter table "Vehicle" add column "status" varchar(20) NOT null default 'active'; -- Active, InActive, Standby
 alter table "Vehicle" rename column "owner" to "vendorId";
+ALTER TABLE "Vehicle"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
 CREATE TABLE "AppConfig" (
 	"orgId" varchar(20) NULL,  /* There will be system level configs where orgId could be null. Ex - TCP rate limiter*/
 	"configKey" varchar(50) NULL,
 	"configValue" TEXT NOT NULL,
 	"comments" varchar(100) NULL,
-	"createdBy" varchar(20) NOT NULL,
+	"createdBy" varchar(50) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL
 );
 
+ALTER TABLE "AppConfig"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
 INSERT INTO "AppConfig" ("orgId","configKey","configValue","comments","createdBy","createdAt","updatedAt") VALUES
 	 (NULL,'rate_limiter_tcp','30','value in secs. Default 30. System level config','admin','2024-11-11 16:21:59.226-05','2024-11-11 16:21:59.226-05'),
@@ -113,3 +119,55 @@ INSERT INTO "AppConfig" ("orgId","configKey","configValue","comments","createdBy
 	 (NULL,'point_within_radius_accuracy_in_meters','30','value in meters. Default 30. Org level config','admin','2024-11-11 16:21:59.227-05','2024-11-11 16:21:59.227-05'),
 	 (NULL,'questdb_geohash_precision','30','value in meters. Default 30. System level config','admin','2024-11-11 16:21:59.227-05','2024-11-11 16:21:59.227-05'),
 	 (NULL,'geofence_schedule_arrival_window','30','value in mins. Default 30. org level config','admin','2024-11-11 16:21:59.227-05','2024-11-11 16:21:59.227-05');
+
+
+delete from "AppConfig" where "configKey" = 'questdb_geohash_precision';
+
+
+-- CREATE TABLE "app_config" (
+-- 	"org_id" varchar(20) NULL,  /* There will be system level configs where orgId could be null. Ex - TCP rate limiter*/
+-- 	"config_key" varchar(50) NULL,
+-- 	"config_value" TEXT NOT NULL,
+-- 	"comments" varchar(100) NULL,
+-- 	"created_by" varchar(50) NOT NULL,
+-- 	"created_at" timestamptz NOT NULL,
+-- 	"updated_at" timestamptz NOT NULL
+-- );
+
+
+[
+    {
+        "orgId": "bmc",
+        "configKey": "FollowDefaultGeohashPrecision",
+        "configValue": "1",
+        "comments": "Make the system ignore radius of each geofence and consider PointWithinRadiusAccuracyInMeter",
+        "createdBy":"admin"
+    },
+    {
+        "orgId": "bmc",
+        "configKey": "PointWithinRadiusAccuracyInMeter",
+        "configValue": "30",
+        "comments": "value in meters. Default 30. Org level config",
+        "createdBy":"admin"
+    }
+]
+
+
+CREATE TABLE "Feature" (
+	"feature" varchar(50) NULL,
+	"description" varchar(200) NULL,
+	"createdBy" varchar(50) NOT NULL,
+	"createdAt" timestamptz NOT NULL,
+	"updatedAt" timestamptz NOT NULL
+);
+
+CREATE TABLE "FeatureSubscription" (
+	"orgId" varchar(20) NULL,
+	"feature" varchar(50) NULL,
+	"subscriptionActive" BOOLEAN DEFAULT false,
+	"subscriptionStartDate" timestamptz NOT NULL,
+	"subscriptionEndDate" timestamptz NOT NULL,
+	"createdBy" varchar(50) NOT NULL,
+	"createdAt" timestamptz NOT NULL,
+	"updatedAt" timestamptz NOT NULL
+);

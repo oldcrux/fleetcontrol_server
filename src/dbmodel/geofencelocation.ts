@@ -49,6 +49,9 @@ const GeofenceLocation = sequelize.define('GeofenceLocation', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  touched: {
+    type: DataTypes.BOOLEAN,
+  },
   createdBy: {
     type: DataTypes.STRING,
     allowNull: false,

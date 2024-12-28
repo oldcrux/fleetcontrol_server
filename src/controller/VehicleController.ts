@@ -305,32 +305,32 @@ export const fetchAllVehicleByOrganization = async (req: Request, res: Response)
  */
 export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
     const executionStartTime = Date.now();
-    logDebug(`VehicleController:fetchAllVehicleBySerialNumber. fetching vehicles with serialNumber: ${serialNumber}`);
-    let vehicleNumber = await redisPool.getConnection().get(serialNumber);
-    if (!vehicleNumber) {
-        logDebug(`VehicleController:fetchAllVehicleBySerialNumber: fetching vehicle from DB with serialNumber ${serialNumber}`);
+    logInfo(`VehicleController:fetchAllVehicleBySerialNumber. fetching vehicles with serialNumber: ${serialNumber}`);
+    let vehicle = await redisPool.getConnection().get(serialNumber);
+    if (!vehicle) {
+        logInfo(`VehicleController:fetchAllVehicleBySerialNumber: fetching vehicle from DB with serialNumber ${serialNumber}`);
 
-        const [results, fields] = await sequelize.query(`select "vehicleNumber" from "Vehicle" where "serialNumber"=?`, {
+        const [results, fields] = await sequelize.query(`select "vehicleNumber", "orgId" from "Vehicle" where "serialNumber"=?`, {
             replacements: [serialNumber],
             Model: Vehicle,
             mapToModel: true,
             type: QueryTypes.RAW
         });
+        logInfo(`data fetched:`, results);
 
-        const allVehicle = results;
-        if (allVehicle.length > 1) {
-            logError(`VehicleController:fetchAllVehicleBySerialNumber: more than 1 vehicle fetched for the serialNumber`, allVehicle);
+        // const allVehicle = results;
+        if (results.length > 1) {
+            logError(`VehicleController:fetchAllVehicleBySerialNumber: more than 1 vehicle fetched for the serialNumber`, results);
         }
-        if(allVehicle.length === 0){
+        if(results.length === 0){
             logError(`VehicleController:fetchAllVehicleBySerialNumber: No vehicles fetched for the serial number ${serialNumber}`);
             return;
         }
 
-        vehicleNumber = allVehicle[0].vehicleNumber;
-
+        vehicle = results;
+        const serializedVehicle = JSON.stringify(vehicle);
         // add serialNumber and vehicleNumber to redis cache
-        // vehicleNumber = await connection.set(parsedMessage.serialNumber, vehicle.vehicleNumber, 'EX', 60*60*12); // Setting the cache for 12hours
-        await redisPool.getConnection().set(serialNumber, vehicleNumber as string, 'EX', cacheTimeout); // timeout in secs
+        await redisPool.getConnection().set(serialNumber, serializedVehicle, 'EX', cacheTimeout); // timeout in secs
 
         // ********* Redis timing check *********
         const executionEndTime = Date.now();
@@ -339,12 +339,13 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
         // ********* Redis timing check *********
     }
     else {// ********* Redis timing check *********
+        vehicle = JSON.parse(vehicle);
         const executionEndTime = Date.now();
         const totalTimeTaken = executionEndTime - executionStartTime;
         logDebug(`VehicleController:fetchAllVehicleBySerialNumber: total time taken for looking into redis cache: ${totalTimeTaken} ms`);
     }// ********* Redis timing check *********
-    logDebug(`VehicleController:fetchAllVehicleBySerialNumber: Exiting with vehicleNumber: ${vehicleNumber}`);
-    return vehicleNumber;
+    logDebug(`VehicleController:fetchAllVehicleBySerialNumber: Exiting with vehicle:`, vehicle![0]);
+    return vehicle![0];
 }
 
 export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: string, query: string) => {
@@ -416,8 +417,9 @@ export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: st
     }
 }
 
-export const fetchVehiclesAndGeoByOrganization = async (orgId: any) => {
 
+export const fetchVehiclesAndGeoByOrganization = async (orgId: any) => {
+    // process.emitWarning(`This method is unused and marked deprecated.`);
     /*
     select vehicleNumber from vehicle where organization='bmc';
     */
