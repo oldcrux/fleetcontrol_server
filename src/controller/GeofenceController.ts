@@ -455,9 +455,9 @@ export const resetGeofenceLocationTouchFlagToFalse = async (orgId: string, vehic
         logInfo(`GeofenceController:resetGeofenceLocationTouchFlagToFalse. orgId is missing. Will not be able to reset GeofenceLocation.touched flag`)
         return;
     }
-    let sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}'`;
+    let sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}' and "touched"=true `;
     if (vehicleGroup) {
-        sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}' 
+        sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}' and "touched"=true
         and "geofenceLocationGroupName" in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleGroup"='${vehicleGroup}' )`;
     }
     logDebug(`GeofenceController:resetGeofenceLocationTouchFlagToFalse: sqlString: ${sqlString}`);
