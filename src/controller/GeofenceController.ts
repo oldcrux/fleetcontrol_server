@@ -438,9 +438,8 @@ export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, org
         where ST_DWithin("centerPoint", ST_MakePoint(${longitude}, ${latitude}), ${geohashPrecisionValue ? geohashPrecisionValue : "radius"}) and "orgId"='${orgId}' 
         and "geofenceLocationGroupName" 
         in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleNumber"='${vehicleNumber}') `;
-    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString formed:`, sqlString);
+    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString:`, sqlString);
 
-    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString: ${sqlString}`);
     const [geofenceLocation] = await sequelize.query(sqlString, {
         Model: GeofenceLocation,
         mapToModel: true,
