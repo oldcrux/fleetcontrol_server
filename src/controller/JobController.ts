@@ -5,7 +5,7 @@ import { redisPool } from '../util/RedisConnection';
 import { triggerAllReportWrapper, vehicleTelemetryDataParseAndIngest } from "./VehicleTelemetryDataController";
 import { logDebug, logError, logInfo, logWarn } from "../util/Logger";
 import sequelize from "../util/sequelizedb";
-import { deleteJobScheduler, deleteQueue, getAllQueues } from "./BullmqController";
+import { deleteQueue, getAllQueues } from "./BullmqController";
 import { resetGeofenceLocationTouchFlagToFalse } from "./GeofenceController";
 
 // import { createBullBoard } from "bull-board";
@@ -62,11 +62,11 @@ export const postTCPMessageBatchToQueue = async (message: []) => {
 }
 
 let geofenceTouchStatusResetWorker = new Worker(`geofenceTouchStatusResetQueue`, async (job) => {
-    logInfo(`Processing geofence Touch  Reset`, job.name, job.data, job.data.orgId);
+    logInfo(`Processing geofence Touch Reset`, job.name, job.data, job.data.orgId);
 
 }, { connection });
 
-export const createGeofenceTouchStatusResetScheduler = async (req: Request, res: Response) => {
+export const createGeofenceTouchStatusResetScheduler = async (req: Request, res?: Response) => {
 
     let orgId;
     let vehicleGroup;
@@ -92,7 +92,9 @@ export const createGeofenceTouchStatusResetScheduler = async (req: Request, res:
     }
 
     if (!orgId || !cronExpression) {
-        res.status(400).json({ message: `Both orgId and cronExpression are required to create job scheduler` });
+        if(res){
+            res.status(400).json({ message: `Both orgId and cronExpression are required to create job scheduler` });
+        }
         return;
     }
 
@@ -121,7 +123,9 @@ export const createGeofenceTouchStatusResetScheduler = async (req: Request, res:
         },
     );
     await createGeofenceTouchStatusResetWorkers();
-    res.status(200).json({ message: `Job scheduler geofenceTouchStatusResetQueue_${orgId} created to run at ${cronExpression}` });
+    if(res){
+        res.status(200).json({ message: `Job scheduler geofenceTouchStatusResetQueue_${orgId} created to run at ${cronExpression}` });
+    }
 }
 
 export const updateGeofenceTouchStatusResetScheduler = async (req: Request, res: Response) => {
@@ -158,8 +162,8 @@ export const updateGeofenceTouchStatusResetScheduler = async (req: Request, res:
 
     req.query.queue = `geofenceTouchStatusResetQueue_${orgId}`;
     geofenceTouchStatusResetWorker.close();
-    await deleteQueue(req, res);
-    await createGeofenceTouchStatusResetScheduler(req, res);
+    await deleteQueue(req);
+    await createGeofenceTouchStatusResetScheduler(req);
     await createGeofenceTouchStatusResetWorkers();
     res.status(200).json({ message: `Job scheduler geofenceTouchStatusResetQueue_${orgId} updated to run at ${cronExpression}` });
 }

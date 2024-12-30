@@ -110,7 +110,7 @@ export async function purgeAllQueues(req: Request, res: Response) {
     }
 }
 
-export async function deleteQueue(req: Request, res: Response) {
+export async function deleteQueue(req: Request, res?: Response) {
     const queueName = req.query.queue as string;
     const allQueues = await getAllQueues();
     const queueExists = allQueues.includes(queueName);
@@ -119,11 +119,15 @@ export async function deleteQueue(req: Request, res: Response) {
         const queue = queueManager.getQueue(queueName);
         await queue.obliterate({ force: true });
         logInfo(`Data purged and Queue deleted: ${queueName}`);
-        res.status(200).json({message: `Queue deleted ${queueName}`});
+        if(res){
+            res.status(200).json({message: `Queue deleted ${queueName}`});
+        }
     }
     else {
         logInfo('BullmqController:deleteQueue: Queue not found', queueName);
-        res.status(400).json({message: `Queue not found - ${queueName}`});
+        if(res){
+            res.status(400).json({message: `Queue not found - ${queueName}`});
+        }
     }
 }
 
