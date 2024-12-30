@@ -1,13 +1,13 @@
 import { queueManager } from "../util/BullQueueManager";
-import { logInfo } from "../util/Logger";
+import { logDebug, logInfo } from "../util/Logger";
 import { Request, Response } from 'express';
 import { redisPool } from "../util/RedisConnection";
 
-async function getAllQueues() {
+export async function getAllQueues() {
     const keys = await redisPool.getConnection().keys('bull:*');
     const queueNames = [...new Set(keys.map(key => key.split(':')[1]))];
 
-    logInfo('BullmqController: getAllQueues: Queues:', queueNames);
+    logDebug('BullmqController: getAllQueues: Queues:', queueNames);
     return queueNames;
 }
 
@@ -45,14 +45,14 @@ async function inspectQueue2(queueName: string) {
     return queueInfo;
 }
 
-export async function inspectMultipleQueues(req: Request, res: Response) {
+export async function inspectAllQueues(req: Request, res: Response) {
     let queueInfo = [];
     const queueNames = await getAllQueues();
     for (const queueName of queueNames) {
         const info = await inspectQueue2(queueName);
         queueInfo.push(info);
     }
-    logInfo(`BullmqController: inspectMultipleQueues: All queue Info:`, queueInfo);
+    logDebug(`BullmqController: inspectAllQueues: All queue Info:`, queueInfo);
     res.status(200).json(queueInfo);
 }
 
@@ -69,7 +69,7 @@ export async function inspectQueue(req: Request, res: Response) {
     }
     else {
         logInfo('BullmqController:inspectQueue2: Queue not found', queueName);
-        res.status(400).json(`Queue not found - ${queueName}`);
+        res.status(400).json({message: `Queue not found - ${queueName}`});
     }
 }
 
@@ -89,11 +89,24 @@ export async function purgeQueue(req: Request, res: Response) {
         await queue.clean(0, 0, 'completed');  // Remove all completed jobs
         await queue.clean(0, 0, 'failed');     // Remove all failed jobs
         logInfo('Queue purged!', queueName);
-        res.status(200).json(`Queue purged ${queueName}`);
+        res.status(200).json({message: `Queue purged ${queueName}`});
     }
     else {
         logInfo('BullmqController:purgeQueue: Queue not found', queueName);
-        res.status(400).json(`Queue not found - ${queueName}`);
+        res.status(400).json({message: `Queue not found - ${queueName}`});
+    }
+}
+
+export async function purgeAllQueues(req: Request, res: Response) {
+    let queueInfo = [];
+    const queueNames = await getAllQueues();
+    for (const queueName of queueNames) {
+        const queue = queueManager.getQueue(queueName);
+        await queue.clean(0, 0, 'completed');  // Remove all completed jobs
+        await queue.clean(0, 0, 'failed');     // Remove all failed jobs
+     
+        queueInfo.push(queueName);
+        res.status(200).json({message: `All queues purged. ${queueInfo}`});
     }
 }
 
@@ -104,12 +117,36 @@ export async function deleteQueue(req: Request, res: Response) {
     
     if (queueExists) {
         const queue = queueManager.getQueue(queueName);
-        await queue.close();
-        logInfo('Queue deleted and data purged!');
-        res.status(200).json(`Queue deleted ${queueName}`);
+        await queue.obliterate({ force: true });
+        logInfo(`Data purged and Queue deleted: ${queueName}`);
+        res.status(200).json({message: `Queue deleted ${queueName}`});
     }
     else {
         logInfo('BullmqController:deleteQueue: Queue not found', queueName);
-        res.status(400).json(`Queue not found - ${queueName}`);
+        res.status(400).json({message: `Queue not found - ${queueName}`});
     }
 }
+
+
+// export async function deleteJobScheduler(req: Request, res?: Response) {
+//     const queueName = req.query.queue as string;
+//     const allQueues = await getAllQueues();
+//     const queueExists = allQueues.includes(queueName);
+    
+//     if (queueExists) {
+//         const queue = queueManager.getQueue(queueName);
+//         const schedulers =  await queue.removeJobScheduler;
+//         // await queue.removeJobScheduler(queueName)
+//         // await queue.obliterate();
+//         logInfo(`job schedulers:`, schedulers);
+//         if(res){
+//             res.status(200).json({message: `Queue deleted ${queueName}`});
+//         }
+//     }
+//     else {
+//         logInfo('BullmqController:deleteQueue: Queue not found', queueName);
+//         if(res){
+//             res.status(400).json({message: `Queue not found - ${queueName}`});
+//         }
+//     }
+// }
