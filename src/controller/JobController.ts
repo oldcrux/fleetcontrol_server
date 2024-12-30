@@ -5,6 +5,8 @@ import { redisPool } from '../util/RedisConnection';
 import { triggerAllReportWrapper, vehicleTelemetryDataParseAndIngest } from "./VehicleTelemetryDataController";
 import { logDebug, logError, logInfo, logWarn } from "../util/Logger";
 import sequelize from "../util/sequelizedb";
+import { deleteJobScheduler, deleteQueue, getAllQueues } from "./BullmqController";
+import { resetGeofenceLocationTouchFlagToFalse } from "./GeofenceController";
 
 // import { createBullBoard } from "bull-board";
 // import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -20,6 +22,8 @@ const testQueue = queueManager.getQueue('testQueue');
 const reportGenerationQueue = queueManager.getQueue('reportGenerationQueue');
 const tcpMessageQueue = queueManager.getQueue('tcpMessageQueue');
 const tcpMessageBatchQueue = queueManager.getQueue('tcpMessageBatchQueue');
+
+// const geofenceTouchStatusResetQueue = queueManager.getQueue('geofenceTouchStatusResetQueue');
 
 const geofenceReportGenerationQueue = queueManager.getQueue('geofenceReportGenerationQueue');
 const vehicleReportGenerationQueue = queueManager.getQueue('vehicleReportGenerationQueue');
@@ -56,6 +60,173 @@ export const postTCPMessageBatchToQueue = async (message: []) => {
         logError('JobController:postTCPMessageBatchToQueue: Error submitting job:', error);
     }
 }
+
+let geofenceTouchStatusResetWorker = new Worker(`geofenceTouchStatusResetQueue`, async (job) => {
+    logInfo(`Processing geofence Touch  Reset`, job.name, job.data, job.data.orgId);
+
+}, { connection });
+
+export const createGeofenceTouchStatusResetScheduler = async (req: Request, res: Response) => {
+
+    let orgId;
+    let vehicleGroup;
+    let cronExpression;
+
+    if (req.query.orgId) {
+        orgId = req.query.orgId;
+    }
+    else if (req.body.orgId) {
+        orgId = req.body.orgId;
+    }
+    if (req.query.vehicleGroup) {
+        vehicleGroup = req.query.vehicleGroup;
+    }
+    else if (req.body.vehicleGroup) {
+        vehicleGroup = req.body.vehicleGroup;
+    }
+    if (req.query.cronExpression) {
+        cronExpression = req.query.cronExpression;
+    }
+    else if (req.body.cronExpression) {
+        cronExpression = req.body.cronExpression;
+    }
+
+    if (!orgId || !cronExpression) {
+        res.status(400).json({ message: `Both orgId and cronExpression are required to create job scheduler` });
+        return;
+    }
+
+    logDebug(`JobController:createGeofenceTouchStatusResetScheduler: orgId, vehicleGroup and cronExpression from request: ${orgId}, ${vehicleGroup}, ${cronExpression}`);
+    
+    let queueName=`geofenceTouchStatusResetQueue_${orgId}`;
+    if(vehicleGroup){
+        queueName=`geofenceTouchStatusResetQueue_${orgId}_${vehicleGroup}`;
+    }
+    const geofenceTouchStatusResetQueue = queueManager.getQueue(queueName);
+
+    await geofenceTouchStatusResetQueue.upsertJobScheduler(
+        'geofenceTouchStatusResetJob',
+        {
+            pattern: cronExpression,
+        },
+        {
+            name: 'geofenceTouchStatusResetCronJob',
+            data: { orgId: orgId, vehicleGroup: vehicleGroup },
+            opts: {
+                backoff: 3,
+                attempts: 3,
+                removeOnComplete: 5,
+                removeOnFail: 10,
+            },
+        },
+    );
+    await createGeofenceTouchStatusResetWorkers();
+    res.status(200).json({ message: `Job scheduler geofenceTouchStatusResetQueue_${orgId} created to run at ${cronExpression}` });
+}
+
+export const updateGeofenceTouchStatusResetScheduler = async (req: Request, res: Response) => {
+
+    let orgId;
+    let vehicleGroup;
+    let cronExpression;
+
+    if (req.query.orgId) {
+        orgId = req.query.orgId;
+    }
+    else if (req.body.orgId) {
+        orgId = req.body.orgId;
+    }
+    if (req.query.vehicleGroup) {
+        vehicleGroup = req.query.vehicleGroup;
+    }
+    else if (req.body.vehicleGroup) {
+        vehicleGroup = req.body.vehicleGroup;
+    }
+    if (req.query.cronExpression) {
+        cronExpression = req.query.cronExpression;
+    }
+    else if (req.body.cronExpression) {
+        cronExpression = req.body.cronExpression;
+    }
+
+    if (!orgId || !cronExpression) {
+        res.status(400).json({ message: `Both orgId and cronExpression are required to update job scheduler` });
+        return;
+    }
+
+    logInfo(`JobController:updateGeofenceTouchStatusResetScheduler: orgId and cronExpression from request: ${orgId}, ${cronExpression}`);
+
+    req.query.queue = `geofenceTouchStatusResetQueue_${orgId}`;
+    geofenceTouchStatusResetWorker.close();
+    await deleteQueue(req, res);
+    await createGeofenceTouchStatusResetScheduler(req, res);
+    await createGeofenceTouchStatusResetWorkers();
+    res.status(200).json({ message: `Job scheduler geofenceTouchStatusResetQueue_${orgId} updated to run at ${cronExpression}` });
+}
+
+export const createGeofenceTouchStatusResetWorkers = async () => {
+    const queueNames = await getAllQueues();
+    for (const queueName of queueNames) {
+        if (queueName.includes('geofenceTouchStatusResetQueue_')) {
+            logInfo(`JobController:createGeofenceTouchStatusResetWorkers:JobController:createGeofenceWorkers: creating worker: ${queueName}`);
+            geofenceTouchStatusResetWorker = new Worker(queueName, async (job) => {
+                logInfo(`JobController:createGeofenceTouchStatusResetWorkers:Processing geofence Touch Reset`, job.name, job.data, job.data.orgId);
+                resetGeofenceLocationTouchFlagToFalse(job.data.orgId, job.data.vehicleGroup);
+            }, { connection });
+        }
+    }
+}
+
+// TODO Test this again - delete scheduler is not working properly.  The deleted queue comes back up in few seconds.
+export const deleteGeofenceTouchStatusResetScheduler = async (req: Request, res: Response) => {
+    let orgId;
+    let vehicleGroup;
+
+    if (req.query.orgId) {
+        orgId = req.query.orgId;
+    }
+    else if (req.body.orgId) {
+        orgId = req.body.orgId;
+    }
+    if (req.query.vehicleGroup) {
+        vehicleGroup = req.query.vehicleGroup;
+    }
+    else if (req.body.vehicleGroup) {
+        vehicleGroup = req.body.vehicleGroup;
+    }
+
+    if (!orgId) {
+        res.status(400).json({ message: `Both orgId and cronExpression are required to update job scheduler` });
+        return;
+    }
+
+    logInfo(`JobController:deleteGeofenceTouchStatusResetScheduler: deleting job scheduler for orgId ${orgId} and vehicleGroup ${vehicleGroup}`);
+
+    if(vehicleGroup){
+        req.query.queue = `geofenceTouchStatusResetQueue_${orgId}_${vehicleGroup}`;
+    }
+    else{
+        req.query.queue = `geofenceTouchStatusResetQueue_${orgId}`;
+    }
+    
+    // await deleteJobScheduler(req);
+    await geofenceTouchStatusResetWorker.close();
+    await deleteQueue(req, res);
+    // await createGeofenceTouchStatusResetWorkers();
+    logDebug(`JobController:deleteGeofenceTouchStatusResetScheduler: deleted job scheduler for orgId ${orgId} and vehicleGroup ${vehicleGroup}`);
+}
+
+geofenceTouchStatusResetWorker.on('completed', (job) => {
+    logInfo(`Job ${job.id}, ${job.data.orgId} -completed in geofenceTouchStatusResetQueue`);
+});
+
+geofenceTouchStatusResetWorker.on('error', (error) => {
+    logError(`Error in worker: ${error.message}`);
+});
+
+geofenceTouchStatusResetWorker.on('failed', (job, err) => {
+    logError(`Job failed - Error: ${err.message}`);
+});
 
 export const postTCPMessageToQueue = async (message: string) => {
     // logInfo(`JobController:postTCPMessageToQueue: Entering`);
@@ -114,6 +285,11 @@ export const createReportJob = async (req: Request, res: Response) => {
     // console.log('Job added to the queue');
 }
 
+// const geofenceTouchStatusResetWorker = new Worker('geofenceTouchStatusResetQueue', async (job) => {
+//     logInfo(`Processing geofence Touch  Reset`, job.name, job.data, job.data.orgId);
+
+// }, {connection});
+
 const tcpMessageBatchWorker = new Worker('tcpMessageBatchQueue', async (job) => {
     logDebug('Processing tcpMessageBatchQueue job:', job.name, job.data);
 
@@ -140,6 +316,10 @@ const testWorker = new Worker('testQueue', async (job) => {
     // await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate processing
 }, { connection });
 
+// geofenceTouchStatusResetWorker.on('completed', (job) => {
+//     logDebug(`Job ${job.id} completed in geofenceTouchStatusResetQueue`);
+// });
+
 tcpMessageBatchWorker.on('completed', (job) => {
     logDebug(`Job ${job.id} completed in tcpMessageQueue`);
 });
@@ -157,6 +337,10 @@ testWorker.on('completed', (job) => {
     logDebug(`Job ${job.id} completed in testQueue`);
 });
 // export { reportGenerationWorker, testWorker };
+
+// geofenceTouchStatusResetWorker.on('error', (error) => {
+//     logError(`Error in worker: ${error.message}`);
+// });
 
 tcpMessageBatchWorker.on('error', (error) => {
     logError(`Error in worker: ${error.message}`);
@@ -181,6 +365,7 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 const gracefulShutdown = async (signal: string) => {
     logInfo(`Received ${signal}, closing server...`);
 
+    await geofenceTouchStatusResetWorker.close();
     await tcpMessageBatchWorker.close();
     await tcpMessageWorker.close();
     await reportGenerationWorker.close();

@@ -165,14 +165,16 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     const json = await response.data;
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: vehicle telemetry data persisted:`, parsedMessage.serialNumber, vehicleNumber);
 
-    await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, parsedMessage.longitude, parsedMessage.latitude);
+    if(parsedMessage.ignition === 1){
+        await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, parsedMessage.longitude, parsedMessage.latitude);
+    }
 }
 
 export const updateGeofenceLocation = async (vehicleNumber: string, orgId: string, longitude: any, latitude: any) => {
     logDebug(`VehicleTelemetryDataController:updateGeofenceLocation: updating Geofence Location Touch flag with longitude: ${longitude},  latitude: ${latitude}`);
     // const geohash = await makeGeohash(latitude, longitude, orgId);
     await updateGeofenceLocationTouchFlag(vehicleNumber, orgId, longitude, latitude);
-    logInfo(`VehicleTelemetryDataController:updateGeofenceLocation: updated Geofence Location Touch flag`);
+    logDebug(`VehicleTelemetryDataController:updateGeofenceLocation: updated Geofence Location Touch flag`);
 }
 
 // TODO *** NOT USED ***
@@ -1357,7 +1359,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                         for (const eachTelemetry of vehicleTelemetry) {
 
                             logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport:MATCHING - eachTelemetry.lat: ${eachTelemetry.latitude}, eachTelemetry.lng: ${eachTelemetry.longitude}, geofence.center.lat: ${centerlatLng.lat}, geofence.center.lng ${centerlatLng.lng}`);
-                            logInfo(`Geofencelocation touched? GeofenceLocation.touched value=${geofence.touched}`);
+                            logDebug(`VehicleTelemetryDataController:processGeofenceTelemetryReport:Geofencelocation touched? GeofenceLocation.touched value=${geofence.touched}`);
                             
                             if(geofence.touched===true){
                                 matchTrueFalse = true;

@@ -57,9 +57,9 @@ export const createGeofence = async (req: Request, res: Response) => {
     if (req.body.length > 0) {
         const geofences = req.body;
         // geofences.forEach(async (geofence: typeof GeofenceLocation) => {
-        for(const geofence of geofences){
+        for (const geofence of geofences) {
 
-            if(geofence.id){
+            if (geofence.id) {
                 continue; // Skip creation if the geofence already exists.
             }
             const geofenceType = geofence.geofenceType;
@@ -69,7 +69,7 @@ export const createGeofence = async (req: Request, res: Response) => {
             const geofenceLocationGroupName = geofence.geofenceLocationGroupName;
             const scheduleArrival = geofence.scheduleArrival;
             const haltDuration = geofence.haltDuration;
-            
+
 
             let radius = 0;
             let center = '';
@@ -82,13 +82,13 @@ export const createGeofence = async (req: Request, res: Response) => {
                 polygon = geofence.polygon;
             }
 
-            center =  await trimCenterLngLatToFiveDecimal(center);
+            center = await trimCenterLngLatToFiveDecimal(center);
 
-            let centerPgString= JSON.stringify(center);
-            let centerPg= JSON.parse(centerPgString);
+            let centerPgString = JSON.stringify(center);
+            let centerPg = JSON.parse(centerPgString);
             const geohash = '';
             // const geohash = await makeGeohash(centerPg.lat, centerPg.lng, radius);
-            
+
             // TODO add validatation - 
             // 1. See if the geofence is already present.  OR override the geofence if the same circle or polygon data is present.
             try {
@@ -133,25 +133,25 @@ export const updateGeofence = async (req: Request, res: Response) => {
     const geofenceLocationGroupName = geofence.geofenceLocationGroupName;
     const scheduleArrival = geofence.scheduleArrival;
     const haltDuration = geofence.haltDuration;
-    
+
     try {
         let radius = 0;
         let center = '';
         let polygon = '';
         if ('circle' == geofenceType) {
             radius = geofence.radius;
-            center = typeof geofence.center === 'string'? JSON.parse(geofence.center): geofence.center; // TODO might need to save separate latitude and longitude values
+            center = typeof geofence.center === 'string' ? JSON.parse(geofence.center) : geofence.center; // TODO might need to save separate latitude and longitude values
         }
         if ('polygon' == geofenceType) {
             polygon = JSON.parse(geofence.polygon);
         }
-        let centerPg= typeof geofence.center === 'string'? JSON.parse(geofence.center): geofence.center;
+        let centerPg = typeof geofence.center === 'string' ? JSON.parse(geofence.center) : geofence.center;
         // const geohash = await makeGeohash(centerPg.lat, centerPg.lng, radius);
         const geohash = '';
 
         // TODO add validatation - 
         // 1. See if the geofence is already present.  OR override the geofence if the same circle or polygon data is present.
-        
+
         const updatedGeofence = await GeofenceLocation.update({
             tag: tag,
             geofenceLocationGroupName: geofenceLocationGroupName,
@@ -169,7 +169,7 @@ export const updateGeofence = async (req: Request, res: Response) => {
             //TODO call makeGeohash() and store a column
             polygon: JSON.stringify(polygon),
         },
-        { where: { id: id } });
+            { where: { id: id } });
 
         logDebug(`GeofenceController:updateGeofence:Exiting.  Updated geofence locations successfully`);
         res.sendStatus(200);
@@ -184,8 +184,8 @@ export const searchGeofence = async (req: Request, res: Response) => {
     // const viewport = JSON.parse(String(encodedViewport));
     logDebug(`GeofenceController:searchGeofence: Entering with query: and orgId:`, req.query);
 
-    if(!orgId){
-        res.status(400).json({message:"OrgId is missing in request query parameter"});
+    if (!orgId) {
+        res.status(400).json({ message: "OrgId is missing in request query parameter" });
         return;
     }
     let viewportQuery = '';
@@ -196,20 +196,20 @@ export const searchGeofence = async (req: Request, res: Response) => {
 
     // NOTE - This if condition for query string will only work for 1 condition.
     let additionalCondition = '';
-    
+
     if (typeof query === 'string' && query?.includes(":")) {
         const parts = query.split(":");
         if (parts.length === 2) {
             additionalCondition = ` and ${parts[0]}='${parts[1]}'`;
         }
     }
-    else if (vehicles && vehicles !=='null' && typeof vehicles === "string") { // NOTE - This if condition is for filtering vehicle specific geofences
+    else if (vehicles && vehicles !== 'null' && typeof vehicles === "string") { // NOTE - This if condition is for filtering vehicle specific geofences
         // Split the input by commas, trim whitespace, and wrap each item with quotes
         const vehicleList = vehicles.split(",").map(vehicles => `'${vehicles.trim()}'`);
         const vehicleCondition = vehicleList.join(", ");
         subQuery = `and "geofenceLocationGroupName" in (select DISTINCT("geofenceLocationGroupName") from "Vehicle" where "vehicleNumber" in (${vehicleCondition})) `;
     }
-    else if (req.query){
+    else if (req.query) {
         additionalCondition = 'and ' + Object.entries(req.query).map(([key, value]) => `"${key}"='${value}'`).join(' and ');
     }
 
@@ -253,7 +253,7 @@ export const fetchGeofence = async (req: Request, res: Response) => {
                                     or "geofenceLocationGroupName" like '%${globalFilter}%'  )`;
     }
 
-    try{
+    try {
         const count = await fetchGeofenceCount(orgId as string, whereCondition);
 
         // let begin = 0;
@@ -281,7 +281,7 @@ export const fetchGeofence = async (req: Request, res: Response) => {
         logDebug(`GeofenceController:fetchGeofence:Exiting. Fetched Geofecences for the orgId: ${orgId}`, orgId, finalResponse);
         res.status(200).json(finalResponse);
     }
-    catch(error){
+    catch (error) {
         res.status(400).json(error);
     }
 }
@@ -325,22 +325,22 @@ export const deleteGeofenceLocationByTag = async (req: Request, res: Response) =
     const { userId, orgId, tag, id } = req.body;
     logInfo(`GeofenceController:deleteGeofenceLocationByTag:Entering with tag=${tag}, user=${userId} on orgId=${orgId}`, req.body);
 
-    if(!orgId){
+    if (!orgId) {
         logInfo(`GeofenceController:deleteGeofenceLocationByTag: orgId is missing. Exiting.`);
-        res.status(400).json({message:"orgId is missing."});
+        res.status(400).json({ message: "orgId is missing." });
         return;
     }
-    if(!tag || !id){
+    if (!tag || !id) {
         logInfo(`GeofenceController:deleteGeofenceLocationByTag: Geofence Location tag or Location Id is missing. Exiting.`);
-        res.status(400).json({message:"Geofence Location tag or Location Id is missing."});
+        res.status(400).json({ message: "Geofence Location tag or Location Id is missing." });
         return;
     }
 
     let sqlString = ``;
-    if(orgId && tag){
+    if (orgId && tag) {
         sqlString = `delete from "GeofenceLocation" where "orgId"=? and "tag"='${tag}'`;
     }
-    else if(orgId && id){
+    else if (orgId && id) {
         sqlString = `delete from "GeofenceLocation" where "orgId"=? and "id"='${id}'`;
     }
 
@@ -363,7 +363,7 @@ export const deleteGeofenceLocationById = async (req: Request, res: Response) =>
     logDebug(`GeofenceController:deleteGeofenceLocationById:Entering with id=${id} on orgId=${orgId}`);
 
     let sqlString = ``;
-    if(orgId && id){
+    if (orgId && id) {
         sqlString = `delete from "GeofenceLocation" where "orgId"=? and "id"=?`;
     }
 
@@ -426,24 +426,47 @@ function convertToReportApiResponse(reportJson: any, totalCountJson: any) {
 
 export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, orgId: string, longitude: any, latitude: any) => {
 
-    let geohashPrecisionValue ;
+    let geohashPrecisionValue;
     const followDefaultGeohashPrecision = await fetchAppConfigByConfigKey("FollowDefaultGeohashPrecision", orgId);
-    if(followDefaultGeohashPrecision === '1'){
+    if (followDefaultGeohashPrecision === '1') {
         geohashPrecisionValue = await fetchAppConfigByConfigKey("PointWithinRadiusAccuracyInMeter", orgId);
     }
 
-    logInfo(`GeofenceController:updateGeofenceLocationTouchFlag: Entering with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
-    
+    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: Entering with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
+
     const sqlString = `update  "GeofenceLocation" set touched=true  
-        where ST_DWithin("centerPoint", ST_MakePoint(${longitude}, ${latitude}), ${geohashPrecisionValue? geohashPrecisionValue: "radius"}) and "orgId"='${orgId}' 
+        where ST_DWithin("centerPoint", ST_MakePoint(${longitude}, ${latitude}), ${geohashPrecisionValue ? geohashPrecisionValue : "radius"}) and "orgId"='${orgId}' 
         and "geofenceLocationGroupName" 
         in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleNumber"='${vehicleNumber}') `;
-    logInfo(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString formed:`, sqlString);
+    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString formed:`, sqlString);
+
+    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString: ${sqlString}`);
+    const [geofenceLocation] = await sequelize.query(sqlString, {
+        Model: GeofenceLocation,
+        mapToModel: true,
+        type: QueryTypes.UPDATE
+    });
+    logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: Geofence location updated with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
+}
+
+export const resetGeofenceLocationTouchFlagToFalse = async (orgId: string, vehicleGroup: string) => {
+
+    logDebug(`GeofenceController:resetGeofenceLocationTouchFlagToFalse: Resetting touched flag for orgId:${orgId} and vehicleGroup:${vehicleGroup}`);
+    if (!orgId) {
+        logInfo(`GeofenceController:resetGeofenceLocationTouchFlagToFalse. orgId is missing. Will not be able to reset GeofenceLocation.touched flag`)
+        return;
+    }
+    let sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}'`;
+    if (vehicleGroup) {
+        sqlString = `update "GeofenceLocation" set "touched" = false  where "orgId" ='${orgId}' 
+        and "geofenceLocationGroupName" in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleGroup"='${vehicleGroup}' )`;
+    }
+    logDebug(`GeofenceController:resetGeofenceLocationTouchFlagToFalse: sqlString: ${sqlString}`);
 
     const [geofenceLocation] = await sequelize.query(sqlString, {
         Model: GeofenceLocation,
         mapToModel: true,
         type: QueryTypes.UPDATE
     });
-    logInfo(`GeofenceController:updateGeofenceLocationTouchFlag: Geofence location updated with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
+    logDebug(`GeofenceController:resetGeofenceLocationTouchFlagToFalse: Resetting touched flag complete for orgId:${orgId} and vehicleGroup:${vehicleGroup}`);
 }

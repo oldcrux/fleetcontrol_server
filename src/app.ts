@@ -15,7 +15,7 @@ import redisRoute from './route/RedisRoute';
 import sequelize from "./util/sequelizedb";
 import jobRoute from "./route/JobRoute";
 import loggerRoute from "./route/LoggerRoute";
-import { postTCPMessageToQueue } from "./controller/JobController";
+import { createGeofenceTouchStatusResetWorkers, postTCPMessageToQueue } from "./controller/JobController";
 import { logDebug, logError, logger, logInfo, logWarn } from "./util/Logger";
 import { redisPool } from "./util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./controller/AppConfigController";
@@ -106,6 +106,7 @@ if (cluster.isPrimary) {
   })();
   // *************                *************
 
+  createGeofenceTouchStatusResetWorkers();
 }
 else {
   app.get("/", (req: Request, res: Response) => {
@@ -254,8 +255,6 @@ process.on("unhandledRejection", (reason, promise) => {
     });
   }
 });
-
-
 
 interface TrackedPromise {
   promise: Promise<any>;

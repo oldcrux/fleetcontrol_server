@@ -305,10 +305,10 @@ export const fetchAllVehicleByOrganization = async (req: Request, res: Response)
  */
 export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
     const executionStartTime = Date.now();
-    logInfo(`VehicleController:fetchAllVehicleBySerialNumber. fetching vehicles with serialNumber: ${serialNumber}`);
+    logDebug(`VehicleController:fetchAllVehicleBySerialNumber. fetching vehicles with serialNumber: ${serialNumber}`);
     let vehicle = await redisPool.getConnection().get(serialNumber);
     if (!vehicle) {
-        logInfo(`VehicleController:fetchAllVehicleBySerialNumber: fetching vehicle from DB with serialNumber ${serialNumber}`);
+        logDebug(`VehicleController:fetchAllVehicleBySerialNumber: fetching vehicle from DB with serialNumber ${serialNumber}`);
 
         const [results, fields] = await sequelize.query(`select "vehicleNumber", "orgId" from "Vehicle" where "serialNumber"=?`, {
             replacements: [serialNumber],
@@ -316,7 +316,7 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
             mapToModel: true,
             type: QueryTypes.RAW
         });
-        logInfo(`data fetched:`, results);
+        logDebug(`VehicleController:fetchAllVehicleBySerialNumber: data fetched:`, results);
 
         // const allVehicle = results;
         if (results.length > 1) {
