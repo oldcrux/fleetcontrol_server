@@ -251,7 +251,9 @@ export const vehicleTelemetryDataIngest = async (req: Request, res: Response) =>
             // await sender.flush();
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: vehicle telemetry data persisted:`, json);
 
-            await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, longitude, latitude);
+            if(ignition === 1){
+                await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, longitude, latitude);
+            }
             res.sendStatus(200);
 
         } catch (error) {

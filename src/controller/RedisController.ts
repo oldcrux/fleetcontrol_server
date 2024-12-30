@@ -59,3 +59,36 @@ export async function deleteRedisCache(req: Request, res: Response) {
     await redisPool.getConnection().del(`${key}`);
     res.status(200).json(`key ${key} deleted from redis cache`);
 }
+
+
+/**
+ * import Redis from "ioredis";
+
+const redis = new Redis();
+
+const deleteKeysByPattern = (pattern: string) => {
+    return new Promise((resolve, reject) => {
+        const stream = redis.scanStream({
+            match: pattern
+        });
+        stream.on("data", (keys: string[]) => {
+            if (keys.length) {
+                const pipeline = redis.pipeline();
+                keys.forEach((key) => {
+                    pipeline.del(key);
+                });
+                pipeline.exec();
+            }
+        });
+        stream.on("end", () => {
+            resolve();
+        });
+        stream.on("error", (e) => {
+            reject(e);
+        });
+    });
+};
+
+// "bull" is queue prefix (default), "example" is the name of queue
+deleteKeysByPattern("bull:example:*");
+ */
