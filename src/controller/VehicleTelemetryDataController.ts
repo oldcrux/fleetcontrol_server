@@ -602,27 +602,27 @@ export const fetchRunningVehicleCountSSE = async (req: Request, res: Response) =
 
     const { orgId, vendorId } = req.query;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // res.setHeader('Content-Type', 'text/event-stream');
+    // res.setHeader('Cache-Control', 'no-cache');
+    // res.setHeader('Connection', 'keep-alive');
 
     logDebug(`VehicleTelemetryDataController: fetchRunningVehicleCountSSE: Entering with orgId ${orgId} and vendorId ${vendorId}`, orgId, vendorId);
 
     const result = await fetchRunningVehicleCountForSSE(orgId, vendorId);
-    logDebug(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent first time:`, result);
-    res.write(`data:${JSON.stringify(result)}\n\n`);
+    // res.write(`data:${JSON.stringify(result)}\n\n`);
+    res.status(200).json(result);
 
     ////////////// logic to push data every 5 sec Starts
-    const interval = setInterval(async () => {
-        const result = await fetchRunningVehicleCountForSSE(orgId, vendorId);
-        logDebug(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again:`, result);
-        res.write(`data:${JSON.stringify(result)}\n\n`);
-    }, sseDataPushInterval as number); // pushing data every 5 secs
+    // const interval = setInterval(async () => {
+    //     const result = await fetchRunningVehicleCountForSSE(orgId, vendorId);
+    //     logDebug(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again:`, result);
+    //     res.write(`data:${JSON.stringify(result)}\n\n`);
+    // }, sseDataPushInterval as number); // pushing data every 5 secs
 
-    req.on('close', () => {
-        clearInterval(interval);
-        res.end();
-    });
+    // req.on('close', () => {
+    //     clearInterval(interval);
+    //     res.end();
+    // });
     ////////////// 
 }
 
@@ -836,27 +836,27 @@ export const fetchAllVehiclesSSE = async (req: Request, res: Response) => {
         viewport = JSON.parse(String(encodedViewport));
     }
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    // res.setHeader('Content-Type', 'text/event-stream');
+    // res.setHeader('Cache-Control', 'no-cache');
+    // res.setHeader('Connection', 'keep-alive');
 
     const result = await fetchAllVehiclesForSSE(orgId, vendorId, searchParam, viewport);
-    logDebug(`VehicleTelemetryDataController:fetchAllVehiclesSSE: data being sent first time:`, result);
-    res.write(`data:${JSON.stringify(result)}\n\n`);
-    // res.status(200).json(result);
+    // logDebug(`VehicleTelemetryDataController:fetchAllVehiclesSSE: data being sent first time:`, result);
+    // res.write(`data:${JSON.stringify(result)}\n\n`);
+    res.status(200).json(result);
 
     ////////////// logic to push the data every 5 sec Starts
-    const interval = setInterval(async () => {
-        const result = await fetchAllVehiclesForSSE(orgId, vendorId, searchParam, viewport);
-        // console.log(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again ${result}`);
-        res.write(`data:${JSON.stringify(result)}\n\n`);
-        // res.status(200).json(result);
-    }, sseDataPushInterval as number);
+    // const interval = setInterval(async () => {
+    //     const result = await fetchAllVehiclesForSSE(orgId, vendorId, searchParam, viewport);
+    //     // console.log(`VehicleTelemetryDataController:fetchRunningVehicleCountSSE: data being sent again ${result}`);
+    //     res.write(`data:${JSON.stringify(result)}\n\n`);
+    //     // res.status(200).json(result);
+    // }, sseDataPushInterval as number);
 
-    req.on('close', () => {
-        clearInterval(interval);
-        res.end();
-    });
+    // req.on('close', () => {
+    //     clearInterval(interval);
+    //     res.end();
+    // });
     ////////////// 
 
 }
