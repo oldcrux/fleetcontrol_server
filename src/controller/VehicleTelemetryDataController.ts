@@ -1312,6 +1312,9 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
     const executionStartTime = Date.now();
     const reportName = orgId + '_geofence_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution started at: ${executionStartTime}`);
+
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 1);
+
     // #1: Fetch all vehicles from mysql Vehicle table
     const localSender = Sender.fromConfig(conf);
     const allVehicles = await fetchVehicleAndGeoByOrganization(orgId);
@@ -1429,7 +1432,11 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
 
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 40);
+
     await exportGeofenceTelemetryReport(reportName);
+
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 60);
 
     logInfo(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution ended at: ${executionEndTime}. Total time taken for Organization ${orgId}: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processGeofenceTelemetryReport: All vehicles processed.');
@@ -1449,6 +1456,9 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const executionStartTime = Date.now();
     const reportName = orgId + '_vehicle_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution started at: ${executionStartTime}`);
+
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 70);
+
     const localSender = Sender.fromConfig(conf);
     /**
      * Vehicle report table -
@@ -1537,7 +1547,11 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
 
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 90);
+
     await exportVehicleTelemetryReport(reportName);
+
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 100);
 
     logInfo(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution ended at: ${executionEndTime}. Total time taken for Organization ${orgId}: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processVehicleTelemetryReport2: All vehicles processed.');
@@ -1578,10 +1592,13 @@ export const triggerAllReportWrapper = async (orgId: string) => {
     const executionStartTime = Date.now();
     logInfo(`VehicleTelemetryDataController:triggerAllReportWrapper:Report generation started for Organization ${orgId} at: ${executionStartTime}`);
 
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 0, 'EX', 3600); // timeout in secs, 1hour
     const geofenceReport = await processGeofenceTelemetryReport(orgId);
     const vehicleReport = await processVehicleTelemetryReport2(orgId);
     // await sender.flush();
 
+    await redisPool.getConnection().del(`reportGenerationProgress_${orgId}`);
+    
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
     logInfo(`VehicleTelemetryDataController:triggerAllReportWrapper:Execution ended at: ${executionEndTime}. Total time taken for Organization ${orgId}: ${totalTimeTaken} ms`);

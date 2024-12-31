@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { redisPool } from "../util/RedisConnection";
-import { logInfo } from '../util/Logger';
+import { logDebug, logInfo } from '../util/Logger';
 
 export async function inspectAllRedisKeys(req: Request, res: Response) {
     let cursor = '0';
@@ -60,6 +60,16 @@ export async function deleteRedisCache(req: Request, res: Response) {
     res.status(200).json(`key ${key} deleted from redis cache`);
 }
 
+export async function getRedisKey(req: Request, res: Response) {
+}
+
+export async function getRedisKeyReportGenerationProgress(req: Request, res: Response) {
+    const orgId = req.query.orgId;
+    const value = await redisPool.getConnection().get(`reportGenerationProgress_${orgId}`);
+
+    logDebug(`RedisController:getRedisKeyReportGenerationProgress:reportGenerationProgress_${orgId} value now:${value}`);
+    res.status(200).json(value);
+}
 
 /**
  * import Redis from "ioredis";
@@ -92,3 +102,4 @@ const deleteKeysByPattern = (pattern: string) => {
 // "bull" is queue prefix (default), "example" is the name of queue
 deleteKeysByPattern("bull:example:*");
  */
+
