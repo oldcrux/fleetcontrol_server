@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import {  createUser, deleteUser, fetchUsers, getAllUsers, searchUserByUserId, updatePassword, updateUser } from '../controller/UserController';
+import {  createUser, deleteUser, fetchUsers, getAllUsers, searchActiveUserByUserId, searchUserByUserId, updatePassword, updateUser } from '../controller/UserController';
 
 const router = Router();
 
@@ -19,6 +19,9 @@ router.post('/delete', deleteUser);
 
 // POST {url}/node/api/user/updatePassword
 router.post('/updatePassword', updatePassword);
+
+// GET {url}/node/api/user/search/active
+router.get('/search/active', searchActiveUserByUserId);
 
 // GET {url}/node/api/user/search
 router.get('/search', searchUserByUserId);

@@ -27,7 +27,7 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
     }
 
     try {
-        if (issuer.includes("oldcruxdb")) {
+        if (issuer.includes("db")) {
             try{
             const payload = jwt.verify(token, process.env.JWT_SECRET as string);
             // console.log(`db password token`,payload)

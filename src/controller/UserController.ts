@@ -146,8 +146,32 @@ export const searchUser = async (req: Request, res: Response) => {
 export const searchUserByUserId = async (req: Request, res: Response) => {
     const userId = req.query.userId;
     logDebug(`UserController:searchUserByUserId: fetching User: ${userId}`, userId);
-    const [user] = await sequelize.query(`select * from "Users" where "userId" = ? or "email"=? `, {
-        replacements: [userId, userId],
+    const sqlString = `select * from "Users" where "userId" = '${userId}' or "email"='${userId}' `;
+
+    const [user] = await sequelize.query(sqlString, {
+        // replacements: [userId, userId],
+        Model: User,
+        mapToModel: true,
+        type: QueryTypes.SELECT
+    });
+
+    logDebug(`UserController:searchUserByUserId: User fetched:`, user);
+    res.status(200).json(user);
+}
+
+export const searchActiveUserByUserId = async (req: Request, res: Response) => {
+    const userId = req.query.userId;
+    logDebug(`UserController:searchUserByUserId: fetching User: ${userId}`, userId);
+    //const sqlString = `select * from "Users" where "userId" = '${userId}' or "email"='${userId}' `;
+
+    const sqlString = `select u."userId", u."firstName", u."lastName", u."primaryOrgId", u."secondaryOrgId", u."email", u."isActive", u."role", u."password", o."latitude" , o."longitude"
+                        from 
+                            "Users" u join "Organization" o 
+                            on o."orgId" = COALESCE(u."secondaryOrgId", u."primaryOrgId")
+                            where (u."userId" ='${userId}' or u."email"='${userId}') and u."isActive" = true and o."isActive" = true`;
+
+    const [user] = await sequelize.query(sqlString, {
+        // replacements: [userId, userId],
         Model: User,
         mapToModel: true,
         type: QueryTypes.SELECT
