@@ -20,7 +20,7 @@ import { logDebug, logError, logger, logInfo, logWarn } from "./util/Logger";
 import { redisPool } from "./util/RedisConnection";
 import { fetchAppConfigByConfigKey } from "./controller/AppConfigController";
 import validateToken from "./middlewares";
-import { searchUserByUserId } from "./controller/UserController";
+import { searchActiveUserByUserId, searchUserByUserId } from "./controller/UserController";
 
 require("dotenv").config();
 // const { InfluxDB, HttpError, Point } = require("@influxdata/influxdb-client");
@@ -113,7 +113,7 @@ else {
     res.send("Welcome to Fleet Control Center");
   });
   
-  app.get('/node/api/user/search', searchUserByUserId);
+  app.get('/node/api/user/search/active', searchActiveUserByUserId);
 
   app.use(validateToken);
   app.use('/node/api/organization', organizationRoutes);

@@ -1,6 +1,7 @@
 CREATE TABLE "Organization" (
 	"orgId" varchar(20) NOT NULL,
 	"primaryOrgId" varchar(20), -- only needed in case creating a vendor.
+	"isActive" BOOLEAN DEFAULT TRUE,
 	"organizationName" varchar(50) NOT NULL,
 	"orgType" varchar(20) NOT NULL,
 	"primaryContactName" varchar(50) NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE "Organization" (
 ALTER TABLE "Organization" ADD COLUMN "orgType" varchar(20) NOT null default 'primary'; --primary, vendor
 ALTER TABLE "Organization" ADD COLUMN "primaryOrgId" varchar(20);
 ALTER TABLE "Organization"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
+alter table "Organization" add column "isActive" boolean default true;
 
 CREATE TABLE "Users" (
 	"userId" varchar(50) NOT NULL,
