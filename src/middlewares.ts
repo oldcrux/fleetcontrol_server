@@ -19,12 +19,14 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
       }
     // console.log(`decoded token`, decoded);
     const issuer = decoded?.payload?.iss;
-
+    
     // console.log(`issuer:`, issuer);
     if (!issuer) {
         res.status(500).json({ message: "Invalid token: Missing issuer" });
         return;
     }
+
+    resetRequestObject(req, decoded);
 
     try {
         if (issuer.includes("db")) {
@@ -77,3 +79,12 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
 };
 
 export default validateToken;
+
+
+const resetRequestObject = async (req: Request, decodedPayload: JwtPayload) => {
+
+    req.body.loggedinUserId = decodedPayload.payload.user.userId;
+    if(decodedPayload.payload.user.role==='admin' || decodedPayload.payload.user.role==='view'){
+        req.body.orgId = decodedPayload.payload.user.primaryOrgId;
+    }
+}

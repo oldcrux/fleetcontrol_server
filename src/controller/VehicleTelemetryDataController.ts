@@ -166,7 +166,7 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: vehicle telemetry data persisted:`, parsedMessage.serialNumber, vehicleNumber);
 
     if(parsedMessage.ignition === 1){
-        await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, parsedMessage.longitude, parsedMessage.latitude);
+        updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, parsedMessage.longitude, parsedMessage.latitude);
     }
 }
 
@@ -252,7 +252,7 @@ export const vehicleTelemetryDataIngest = async (req: Request, res: Response) =>
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: vehicle telemetry data persisted:`, json);
 
             if(ignition === 1){
-                await updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, longitude, latitude);
+                updateGeofenceLocation(vehicleNumber!, vehicle!.orgId, longitude, latitude);
             }
             res.sendStatus(200);
 
