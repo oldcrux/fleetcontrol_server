@@ -57,6 +57,7 @@ alter table "Users"  add column "role" varchar(20) not null default 'view'; -- s
 alter table "Users" alter column "password" drop not null ;
 alter table "Users"  add column "authType" varchar(20) not null default 'db'; -- db, others
 alter table "Users"  alter column "userId" SET DATA TYPE VARCHAR(50); -- db, others
+ALTER TABLE "Users"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
 CREATE TABLE "GeofenceLocation" (
 	id serial4 NOT NULL,
@@ -155,21 +156,25 @@ delete from "AppConfig" where "configKey" = 'questdb_geohash_precision';
 ]
 
 
-CREATE TABLE "Feature" (
-	"feature" varchar(50) NULL,
+
+CREATE TABLE "features" (
+	"feature" varchar(50) null primary key ,
 	"description" varchar(200) NULL,
-	"createdBy" varchar(50) NOT NULL,
-	"createdAt" timestamptz NOT NULL,
-	"updatedAt" timestamptz NOT NULL
+	"created_by" varchar(50) NOT NULL,
+	"created_at" timestamptz NOT NULL,
+	"updated_by" varchar(50) NOT NULL,
+	"updated_at" timestamptz NOT NULL
 );
 
-CREATE TABLE "FeatureSubscription" (
-	"orgId" varchar(20) NULL,
+CREATE TABLE "feature_subscriptions" (
+	"org_id" varchar(20) NULL,
 	"feature" varchar(50) NULL,
-	"subscriptionActive" BOOLEAN DEFAULT false,
-	"subscriptionStartDate" timestamptz NOT NULL,
-	"subscriptionEndDate" timestamptz NOT NULL,
-	"createdBy" varchar(50) NOT NULL,
-	"createdAt" timestamptz NOT NULL,
-	"updatedAt" timestamptz NOT NULL
+	"subscription_active" BOOLEAN DEFAULT false,
+	"subscription_start_date" timestamptz NOT NULL,
+	"subscription_end_date" timestamptz NOT NULL,
+	"created_by" varchar(50) NOT NULL,
+	"created_at" timestamptz NOT NULL,
+	"updated_by" varchar(50) NOT NULL,
+	"updated_at" timestamptz NOT null,
+	primary key (org_id, feature)
 );

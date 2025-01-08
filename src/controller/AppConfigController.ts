@@ -42,6 +42,7 @@ export const updateAppConfig = async (req: Request, res: Response) => {
 
     if (!configKey || !configValue) {
         res.status(400).json(`configKey and configValue are required`);
+        return;
     }
 
     let query = `UPDATE "AppConfig" SET "configValue"=? WHERE "configKey"=? `;

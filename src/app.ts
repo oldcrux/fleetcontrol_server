@@ -12,6 +12,8 @@ import geofenceRoute from './route/GeofenceRoute';
 import appConfigRoute from './route/AppConfigRoute';
 import bullmqRoute from './route/BullmqRoute';
 import redisRoute from './route/RedisRoute';
+import featureRoute from './route/FeatureRoute';
+import subscriptionRoute from './route/SubscriptionRoute';
 import sequelize from "./util/sequelizedb";
 import jobRoute from "./route/JobRoute";
 import loggerRoute from "./route/LoggerRoute";
@@ -127,6 +129,9 @@ else {
   app.use('/node/api/appconfig', appConfigRoute);
   app.use('/node/api/bull', bullmqRoute);
   app.use('/node/api/redis', redisRoute);
+  app.use('/node/api/feature', featureRoute);
+  app.use('/node/api/feature/subscription', subscriptionRoute);
+
 
   app.use((err: any, req: Request, res: Response, next: any) => {
     logger.error(err.message, { stack: err.stack });

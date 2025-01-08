@@ -7,6 +7,7 @@ import { logDebug, logError, logInfo } from "../util/Logger";
 import { makeGeohash } from "./VehicleTelemetryDataController";
 import { fetchAppConfigByConfigKey } from "./AppConfigController";
 import { trimCenterLngLatToFiveDecimal } from "../util/CommonUtil";
+import { isGeofenceLocationLiveStatusSubscriptionActive } from "./SubscriptionController";
 
 const { Sender } = require("@questdb/nodejs-client")
 
@@ -111,13 +112,15 @@ export const createGeofence = async (req: Request, res: Response) => {
                 });
 
                 logDebug(`GeofenceController:createGeofence:Exiting. Created geofence locations successfully`);
-                res.sendStatus(200);
+                // res.sendStatus(200);
             } catch (error) {
                 logError(`Error creating Geofence locations`, error, geofence);
-                res.status(400).json({ error: "Error creating Geofence locations " + error });
+                // res.status(400).json({ error: "Error creating Geofence locations " + error });
+                continue;
             }
-        };
+        }; 
     }
+    res.status(200).json({ message: "geofence locations created" });;
 };
 
 
@@ -425,6 +428,10 @@ function convertToReportApiResponse(reportJson: any, totalCountJson: any) {
 }
 
 export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, orgId: string, longitude: any, latitude: any) => {
+
+    const subscriptionActive= await isGeofenceLocationLiveStatusSubscriptionActive(orgId);
+    if(!subscriptionActive)
+        return;
 
     let geohashPrecisionValue;
     const followDefaultGeohashPrecision = await fetchAppConfigByConfigKey("FollowDefaultGeohashPrecision", orgId);
