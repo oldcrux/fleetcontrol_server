@@ -36,6 +36,18 @@ export const createFeature2 = async (featureValue: string, description: string, 
             updatedBy: userId,
         }
     });
-    logDebug(`new feature created:`, feature, created);
+    logDebug(`FeatureController:createFeature2: new feature created:`, feature, created);
     return [feature, created];
+}
+
+export const findFeature = async (featureValue: string) => {
+
+    const feature = await Features.findOne({
+        attributes: ['description'],
+        where: {
+            feature: featureValue,
+        }
+    });
+    logDebug(`FeatureController:findFeature: feature found:`, feature);
+    return feature;
 }

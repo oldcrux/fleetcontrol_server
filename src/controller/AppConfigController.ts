@@ -22,7 +22,11 @@ export const createAppConfig = async (req: Request, res: Response) => {
                 })
                 logDebug(`AppConfigController:createAppConfig: New AppConfig created: ${appConfig}`);
 
-                await redisPool.getConnection().set(`${appConfig.configKey}`, appConfig.configValue as string);
+                if(appconfig.orgId){
+                    await redisPool.getConnection().set(`${appConfig.configKey}_${appConfig.orgId}`, appConfig.configValue as string, 'EX', 86400); // 24hours timeout in secs
+                }else{
+                    await redisPool.getConnection().set(`${appConfig.configKey}`, appConfig.configValue as string, 'EX', 86400); // 24hours timeout in secs
+                }
                 appConfigsCreated.push(appConfig);
             })
         }
@@ -45,22 +49,39 @@ export const updateAppConfig = async (req: Request, res: Response) => {
         return;
     }
 
-    let query = `UPDATE "AppConfig" SET "configValue"=? WHERE "configKey"=? `;
-    let replacements = [configValue, configKey];
+    // let query = `UPDATE "AppConfig" SET "configValue"=? WHERE "configKey"=? `;
+    // let replacements = [configValue, configKey];
 
-    if (comments) {
-        query = `UPDATE "AppConfig" SET "configValue"=?, "comments"=? WHERE "configKey"=? `;
-        replacements = [configValue, comments, configKey];
+    // if (comments) {
+    //     query = `UPDATE "AppConfig" SET "configValue"=?, "comments"=? WHERE "configKey"=? `;
+    //     replacements = [configValue, comments, configKey];
+    // }
+
+    // const [appConfig] = await sequelize.query(query, {
+    //     replacements: replacements,
+    //     Model: AppConfig,
+    //     mapToModel: true,
+    //     type: QueryTypes.RAW
+    // });
+
+    const [updatedCount, updatedRows] = await AppConfig.update(
+        {
+            configValue: configValue,
+            // updatedBy: userId,
+            comments: comments
+        },
+        { where: { orgId: orgId, configKey: configKey }, returning: true },
+    )
+
+    if (updatedCount > 0) {
+        if (orgId) {
+            await redisPool.getConnection().set(`${configKey}_${orgId}`, configValue as string, 'EX', 86400); // 24hours timeout in secs
+        }
+        else {
+            await redisPool.getConnection().set(`${configKey}`, configValue as string, 'EX', 86400); // 24hours timeout in secs
+        }
     }
-
-    const [appConfig] = await sequelize.query(query, {
-        replacements: replacements,
-        Model: AppConfig,
-        mapToModel: true,
-        type: QueryTypes.RAW
-    });
-    await redisPool.getConnection().set(`${configKey}`, configValue as string);
-    res.status(200).json({message: `AppConfig updated`});
+    res.status(200).json({ message: `AppConfig updated` });
 }
 
 /**
@@ -68,20 +89,29 @@ export const updateAppConfig = async (req: Request, res: Response) => {
  */
 export const fetchAppConfig2 = async (req: Request, res: Response) => {
     const configKey = req.query.configKey;
-    const configValue = req.query.configValue;
-    const comments = req.query.comments;
     const orgId = req.query.orgId;
-
-    const query = `SELECT * FROM "AppConfig" WHERE "configKey"=? `;
-
-    const [appConfig] = await sequelize.query(query, {
-        replacements: [configKey],
-        Model: AppConfig,
-        mapToModel: true,
-        type: QueryTypes.RAW
-    });
-    logDebug(`AppConfigController:fetchAppConfig2: AppConfig fetched:`, appConfig[0]);
-    res.status(200).json(appConfig[0]);
+    let queryString ;
+    if(orgId){
+        queryString = `SELECT * FROM "AppConfig" WHERE "configKey"=? and "orgId"=? `;
+        const [appConfig] = await sequelize.query(queryString, {
+            replacements: [configKey, orgId],
+            Model: AppConfig,
+            mapToModel: true,
+            type: QueryTypes.RAW
+        });
+        logDebug(`AppConfigController:fetchAppConfig2: AppConfig fetched:`, appConfig[0]);
+        res.status(200).json(appConfig[0]);
+    }else{
+        queryString = `SELECT * FROM "AppConfig" WHERE "configKey"=? `;
+        const [appConfig] = await sequelize.query(queryString, {
+            replacements: [configKey],
+            Model: AppConfig,
+            mapToModel: true,
+            type: QueryTypes.RAW
+        });
+        logDebug(`AppConfigController:fetchAppConfig2: AppConfig fetched:`, appConfig[0]);
+        res.status(200).json(appConfig[0]);
+    }
 }
 
 /**
@@ -93,10 +123,10 @@ export const fetchAppConfig = async (req: Request, res: Response) => {
     const comments = req.body.comments;
     const orgId = req.body.orgId;
 
-    const query = `SELECT * FROM "AppConfig" WHERE "configKey"=? `;
+    const query = `SELECT * FROM "AppConfig" WHERE "configKey"=? and "orgId"=? `;
 
     const [appConfig] = await sequelize.query(query, {
-        replacements: [configKey],
+        replacements: [configKey, orgId],
         Model: AppConfig,
         mapToModel: true,
         type: QueryTypes.RAW
@@ -106,18 +136,23 @@ export const fetchAppConfig = async (req: Request, res: Response) => {
 }
 
 export const fetchAppConfigByConfigKey = async (configKey: string, orgId?: string) => {
-    const configValueFromCache = await redisPool.getConnection().get(`${configKey}`);
+    let configValueFromCache;
+    if (orgId) {
+        configValueFromCache = await redisPool.getConnection().get(`${configKey}_${orgId}`);
+    } else {
+        configValueFromCache = await redisPool.getConnection().get(`${configKey}`);
+    }
     if (configValueFromCache) {
-        logDebug(`AppConfigController:fetchAppConfigByConfigKey: AppConfig fetched from cache: ${configValueFromCache}`);
+        logInfo(`AppConfigController:fetchAppConfigByConfigKey: AppConfig fetched from cache: ${configValueFromCache}`);
         return configValueFromCache;
     }
     else {
         let sqlString;
         if (orgId) {
-            sqlString = `SELECT * FROM "AppConfig" WHERE "configKey"=${configKey} and "orgId"=${orgId}`;
+            sqlString = `SELECT * FROM "AppConfig" WHERE "configKey"='${configKey}' and "orgId"='${orgId}'`;
         }
         else {
-            sqlString = `SELECT * FROM "AppConfig" WHERE "configKey"=${configKey} `;
+            sqlString = `SELECT * FROM "AppConfig" WHERE "configKey"='${configKey}' `;
         }
         const [appConfig] = await sequelize.query(sqlString, {
             // replacements: [configKey],
@@ -125,7 +160,13 @@ export const fetchAppConfigByConfigKey = async (configKey: string, orgId?: strin
             mapToModel: true,
             type: QueryTypes.RAW
         });
-        await redisPool.getConnection().set(`${appConfig[0].configKey}`, appConfig[0].configValue as string);
+        if (orgId) {
+            await redisPool.getConnection().set(`${appConfig[0].configKey}_${orgId}`, appConfig[0].configValue as string, 'EX', 86400); // 24hours timeout in secs
+        }
+        else {
+            await redisPool.getConnection().set(`${appConfig[0].configKey}`, appConfig[0].configValue as string, 'EX', 86400); // 24hours timeout in secs
+        }
+
         logDebug(`AppConfigController:fetchAppConfigByConfigKey: AppConfig fetched from DB:`, appConfig[0]);
         return appConfig[0].configValue;
     }
@@ -134,17 +175,21 @@ export const fetchAppConfigByConfigKey = async (configKey: string, orgId?: strin
 export const deleteAppConfig = async (req: Request, res: Response) => {
     const configKey = req.body.configKey;
     const orgId = req.body.orgId;
-    const query = `DELETE FROM "AppConfig" WHERE "configKey"=? `;
+    const query = `DELETE FROM "AppConfig" WHERE "configKey"=? and "orgId"=?`;
 
     const [appConfig] = await sequelize.query(query, {
-        replacements: [configKey],
+        replacements: [configKey, orgId],
         Model: AppConfig,
         mapToModel: true,
         type: QueryTypes.RAW
     });
     logDebug(`AppConfigController:updateAppConfig: AppConfig deleted: ${appConfig}`);
 
-    await redisPool.getConnection().del(`${configKey}`);
+    if(orgId){
+        await redisPool.getConnection().del(`${configKey}_${orgId}`);
+    }else{
+        await redisPool.getConnection().del(`${configKey}`);
+    }
     res.status(200).json(appConfig);
 }
 
@@ -159,4 +204,19 @@ export const getAppConfigCache = async (req: Request, res: Response) => {
     const cache = await redisPool.getConnection().get(`${configKey}`);
 
     res.status(200).json(cache);
+}
+
+export const fetchReportEmailSubscribers = async (orgId: string) => {
+    const subscribers = await fetchAppConfigByConfigKey("ReportEmailSubscribers", orgId);
+    return subscribers;
+}
+
+export const fetchFollowDefaultGeohashPrecision = async (orgId: string) => {
+    const value = await fetchAppConfigByConfigKey("FollowDefaultGeohashPrecision", orgId);
+    return value;
+}
+
+export const fetchPointWithinRadiusAccuracyInMeter = async (orgId: string) => {
+    const value = await fetchAppConfigByConfigKey("PointWithinRadiusAccuracyInMeter", orgId);
+    return value;
 }

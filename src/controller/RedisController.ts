@@ -57,7 +57,26 @@ export async function inspectAllRedisKeys(req: Request, res: Response) {
 export async function deleteRedisCache(req: Request, res: Response) {
     const key = req.query.key;
     await redisPool.getConnection().del(`${key}`);
-    res.status(200).json(`key ${key} deleted from redis cache`);
+    res.status(200).json({message: `key ${key} deleted from redis cache`});
+}
+
+export async function deleteAllRedisCache(req: Request, res: Response) {
+    let cursor = '0';
+    let keys = [];
+
+    do {
+        const result = await redisPool.getConnection().scan(cursor);
+        cursor = result[0];
+        const scannedKeys = result[1];
+
+        for (const key of scannedKeys) {
+            keys.push({
+                key: key
+            });
+            await redisPool.getConnection().del(`${key}`);
+        }
+    } while (cursor !== '0');
+    res.status(200).json({message: `Deleted redis cache:`, keys});
 }
 
 export async function getRedisKey(req: Request, res: Response) {
