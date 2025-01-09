@@ -5,7 +5,7 @@ import { QueryTypes, where } from "sequelize";
 import GeofenceLocation from "../dbmodel/geofencelocation";
 import { logDebug, logError, logInfo } from "../util/Logger";
 import { makeGeohash } from "./VehicleTelemetryDataController";
-import { fetchAppConfigByConfigKey } from "./AppConfigController";
+import { fetchAppConfigByConfigKey, fetchFollowDefaultGeohashPrecision, fetchPointWithinRadiusAccuracyInMeter } from "./AppConfigController";
 import { trimCenterLngLatToFiveDecimal } from "../util/CommonUtil";
 import { isGeofenceLocationLiveStatusSubscriptionActive } from "./SubscriptionController";
 
@@ -434,9 +434,9 @@ export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, org
         return;
 
     let geohashPrecisionValue;
-    const followDefaultGeohashPrecision = await fetchAppConfigByConfigKey("FollowDefaultGeohashPrecision", orgId);
+    const followDefaultGeohashPrecision = await fetchFollowDefaultGeohashPrecision(orgId);
     if (followDefaultGeohashPrecision === '1') {
-        geohashPrecisionValue = await fetchAppConfigByConfigKey("PointWithinRadiusAccuracyInMeter", orgId);
+        geohashPrecisionValue = await fetchPointWithinRadiusAccuracyInMeter(orgId);
     }
 
     logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: Entering with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);

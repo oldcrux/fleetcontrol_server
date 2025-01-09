@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import { logDebug } from '../util/Logger';
+import { logDebug, logInfo } from '../util/Logger';
 import sequelize from '../util/sequelizedb';
 import { QueryTypes } from 'sequelize';
 import { redisPool } from "../util/RedisConnection";
 import FeatureSubscription from '../dbmodel/featuresubscription';
+import { findFeature } from './FeatureController';
 
 /**
  * **** TODO ****
@@ -64,16 +65,22 @@ export const isFeatureSubscriptionActive2 = async (featureValue: string, orgId: 
 export const createSubscription = async (req: Request, res: Response) => {
     logDebug(`FeatureController:createSubscription:request body:`, req.body);
 
+    const days = req.body.days;
     const feature = req.body.feature;
     const orgId = req.body.orgId;
     const userId = req.body.loggedinUserId;
     const subscriptionActive = true;
     const subscriptionStartDate = new Date();
     const subscriptionEndDate = new Date();
-    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 30);
+    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + days);
 
     if (!feature || !orgId) {
         res.status(400).json({ message: `feature and orgId are required` });
+        return;
+    }
+    const featureObj = await findFeature(feature);
+    if(!featureObj){
+        res.status(400).json({ message: `feature ${feature} doesnot exists.` });
         return;
     }
     const [featureSubscription, created] = await FeatureSubscription.findOrCreate({

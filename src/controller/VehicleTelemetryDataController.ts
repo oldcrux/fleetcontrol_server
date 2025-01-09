@@ -1313,7 +1313,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
     const reportName = orgId + '_geofence_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution started at: ${executionStartTime}`);
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 1);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 1, 'EX', 3600); // timeout in secs, 1hour
 
     // #1: Fetch all vehicles from mysql Vehicle table
     const localSender = Sender.fromConfig(conf);
@@ -1432,11 +1432,11 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 40);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 40, 'EX', 3600); // timeout in secs, 1hour
 
-    await exportGeofenceTelemetryReport(reportName);
+    await exportGeofenceTelemetryReport(reportName, orgId);
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 60);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 60, 'EX', 3600); // timeout in secs, 1hour;
 
     logInfo(`VehicleTelemetryDataController:processGeofenceTelemetryReport: Execution ended at: ${executionEndTime}. Total time taken for Organization ${orgId}: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processGeofenceTelemetryReport: All vehicles processed.');
@@ -1457,7 +1457,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const reportName = orgId + '_vehicle_' + formatTimestamp(executionStartTime);
     logInfo(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution started at: ${executionStartTime}`);
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 70);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 70, 'EX', 3600); // timeout in secs, 1hour
 
     const localSender = Sender.fromConfig(conf);
     /**
@@ -1547,11 +1547,11 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const executionEndTime = Date.now();
     const totalTimeTaken = executionEndTime - executionStartTime;
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 90);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 90, 'EX', 3600); // timeout in secs, 1hour
 
-    await exportVehicleTelemetryReport(reportName);
+    await exportVehicleTelemetryReport(reportName, orgId);
 
-    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 100);
+    await redisPool.getConnection().set(`reportGenerationProgress_${orgId}`, 100, 'EX', 10); // timeout in secs
 
     logInfo(`VehicleTelemetryDataController:processVehicleTelemetryReport2: Execution ended at: ${executionEndTime}. Total time taken for Organization ${orgId}: ${totalTimeTaken} ms`);
     logDebug('VehicleTelemetryDataController:processVehicleTelemetryReport2: All vehicles processed.');
@@ -1788,14 +1788,14 @@ export const todaysSpeed = async (req: Request, res: Response) => {
     res.status(200).json(result);
 }
 
-const exportGeofenceTelemetryReport = async (reportName: any) => {
+const exportGeofenceTelemetryReport = async (reportName: any, orgId: string) => {
     logDebug(`VehicleTelemetryDataController:exportGeofenceTelemetryReport: Exporting Geofence Telemetry report:`, reportName);
     let retryCount = 0;
     if (reportName) {
         while (retryCount < 3) {
             const geofenceTelemetryReport = await fetchGeofenceTelemetryReportByReportName(reportName);
             if (geofenceTelemetryReport && geofenceTelemetryReport.length > 0) {
-                await notifyViaEmail(reportName, geofenceTelemetryReport);
+                await notifyViaEmail(reportName, geofenceTelemetryReport, orgId);
                 logDebug(`VehicleTelemetryDataController:exportGeofenceTelemetryReport: Exported Geofence Telemetry report:`, reportName);
                 break;
             }
@@ -1834,14 +1834,14 @@ const fetchGeofenceTelemetryReportByReportName = async (reportName: any) => {
     return geofenceTelemetryReport;
 }
 
-const exportVehicleTelemetryReport = async (reportName: any) => {
+const exportVehicleTelemetryReport = async (reportName: any, orgId: string) => {
     logDebug(`VehicleTelemetryDataController:exportVehicleTelemetryReport: Exporting Vehicle Telemetry report:`, reportName);
     let retryCount = 0;
     if (reportName) {
         while (retryCount < 3) {
             const vehicleTelemetryReport = await fetchVehicleTelemetryReportByReportName(reportName);
             if (vehicleTelemetryReport && vehicleTelemetryReport.length > 0) {
-                await notifyViaEmail(reportName, vehicleTelemetryReport);
+                await notifyViaEmail(reportName, vehicleTelemetryReport, orgId);
                 logDebug(`VehicleTelemetryDataController:exportVehicleTelemetryReport: Exported Vehicle Telemetry report:`, reportName);
                 break;
             }
@@ -1897,15 +1897,17 @@ const fetchVehicleTelemetryReportByReportName = async (reportName: any) => {
 
 export async function manualExportGeofenceTelemetryReport(req: Request, res: Response) {
     const reportName = req.query.reportName;
+    const orgId = req.query.orgId as string;
 
-    await exportGeofenceTelemetryReport(reportName);
+    await exportGeofenceTelemetryReport(reportName, orgId);
     res.status(200).json(`emailed successfully`);
 }
 
 export async function manualExporVehicleTelemetryReport(req: Request, res: Response) {
     const reportName = req.query.reportName;
+    const orgId = req.query.orgId as string;
 
-    await exportVehicleTelemetryReport(reportName);
+    await exportVehicleTelemetryReport(reportName, orgId);
     res.status(200).json(`emailed successfully`);
 }
 

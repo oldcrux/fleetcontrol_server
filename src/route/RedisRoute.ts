@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { deleteRedisCache, getRedisKey, getRedisKeyReportGenerationProgress, inspectAllRedisKeys } from '../controller/RedisController';
+import { deleteAllRedisCache, deleteRedisCache, getRedisKey, getRedisKeyReportGenerationProgress, inspectAllRedisKeys } from '../controller/RedisController';
 
 const router = Router();
 
@@ -17,5 +17,7 @@ router.get('/inspect/reportGenerationProgress', getRedisKeyReportGenerationProgr
 // POST {url}/node/api/redis/delete
 router.post('/delete', deleteRedisCache);
 
+// POST {url}/node/api/redis/delete/all
+router.post('/delete/all', deleteAllRedisCache);
 
 export default router;

@@ -1,9 +1,14 @@
 import { logDebug, logError, logInfo } from "../util/Logger";
-import { fetchAppConfigByConfigKey } from "./AppConfigController";
+import { fetchReportEmailSubscribers } from "./AppConfigController";
 const nodemailer = require('nodemailer');
 const ExcelJS = require('exceljs');
 const fs = require('fs');
-const path = require('path');
+import * as dotenv from 'dotenv';
+
+const emailHost = process.env.EMAIL_HOST;
+const emailUser = process.env.EMAIL_USER;
+const emailpwd = process.env.EMAIL_PASSWORD;
+
 
 async function generateVehicleExcel(reportName: any, reportData: any) {
     try {
@@ -164,9 +169,9 @@ async function generateGeofenceExcel(reportName: any, reportData: any) {
     }
 }
 
-async function sendEmail(filePath: any) {
+async function sendEmail(filePath: any, orgId: string) {
     try {
-        const subscribers = await fetchAppConfigByConfigKey('ReportEmailSubscribers');
+        const subscribers = await fetchReportEmailSubscribers(orgId);
         logDebug(`NotificationController:generateExcel: mail subscribers`, subscribers);
 
         const mailOptions = {
@@ -215,17 +220,17 @@ async function fileCleanup(filePath: any) {
     });
 }
 
-export async function notifyViaEmail(reportName: any, reportData: any) {
+export async function notifyViaEmail(reportName: any, reportData: any, orgId: string) {
     logDebug(`NotificationController:notifyViaEmail: Sending email:`, reportData);
 
     if (reportName.includes("vehicle")) {
         generateVehicleExcel(reportName, reportData)
-            .then((filePath) => sendEmail(filePath))
+            .then((filePath) => sendEmail(filePath, orgId))
             .catch((err) => logError('NotificationController:notifyViaEmail: Failed to generate vehicle report or send email:', err));
     }
     else if (reportName.includes("geofence")) {
         generateGeofenceExcel(reportName, reportData)
-            .then((filePath) => sendEmail(filePath))
+            .then((filePath) => sendEmail(filePath, orgId))
             .catch((err) => logError('NotificationController:notifyViaEmail Failed to generate geofence report or send email:', err));
     }
 }
@@ -238,12 +243,12 @@ function formatHeader(header: any) {
 }
 
 const transporter = nodemailer.createTransport({
-    host: "smtp.zoho.com",
+    host: emailHost,
     port: 465, // or 587 for TLS
     secure: true, // use true for port 465, false for other ports
     auth: {
-        user: `support@oldcrux.com`,
-        pass: `PlantRootWater001!`,
+        user: emailUser,
+        pass: emailpwd,
     },
 });
 
