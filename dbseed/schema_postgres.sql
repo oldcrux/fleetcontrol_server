@@ -81,6 +81,12 @@ CREATE TABLE "GeofenceLocation" (
 alter table "GeofenceLocation" add column "touched" boolean default false;
 ALTER TABLE "GeofenceLocation"  alter column "createdBy" SET DATA TYPE VARCHAR(50);
 
+ALTER TABLE "GeofenceLocation"
+  ALTER COLUMN "centerPoint" TYPE geometry(Point, 4326)
+  USING "centerPoint"::geometry;
+CREATE INDEX idx_centerPoint_geom ON "GeofenceLocation" USING gist ("centerPoint");
+
+
 CREATE TABLE "Vehicle" (
 	"vehicleNumber" varchar(20) NOT NULL,
 	"make" varchar(20) NULL,
@@ -178,3 +184,10 @@ CREATE TABLE "feature_subscriptions" (
 	"updated_at" timestamptz NOT null,
 	primary key (org_id, feature)
 );
+
+
+insert into "Organization" values
+('oldcrux', 'oldcrux', 'oldcrux', '1234567890', 'support@oldcrux.com', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', 20.3010259,85.7380515, 'sysadmin', now(), now(), 'system', null, true );
+
+insert into "Users" values 
+('sysadmin', 'oldcrux', 'system', 'oldcrux', 'support@oldcrux.com', '1234567890', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', '$2a$10$5NMZNw0YDbIXKX3oAsorhe/YDl92DN7zV9O.HdXRXWHFB7BhIPh6W', true, 'sysadmin', now(), now(),null, 'system', 'db');

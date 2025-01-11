@@ -441,8 +441,11 @@ export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, org
 
     logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: Entering with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
 
-    const sqlString = `update  "GeofenceLocation" set touched=true  
-        where ST_DWithin("centerPoint", ST_MakePoint(${longitude}, ${latitude}), ${geohashPrecisionValue ? geohashPrecisionValue : "radius"}) and "orgId"='${orgId}' 
+    const sqlString = `update  "GeofenceLocation" set "touched"=true, "updatedAt"=now()
+        where ST_DWithin(
+        ST_Transform("centerPoint", 3857), 
+        ST_Transform(ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326), 3857), 
+        ${geohashPrecisionValue ? geohashPrecisionValue : "radius"}) and "orgId"='${orgId}' 
         and "geofenceLocationGroupName" 
         in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleNumber"='${vehicleNumber}') `;
     logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: sqlString:`, sqlString);
@@ -452,6 +455,7 @@ export const updateGeofenceLocationTouchFlag = async (vehicleNumber: string, org
         mapToModel: true,
         type: QueryTypes.UPDATE
     });
+    // logInfo(`geofence location updated: `, geofenceLocation);
     logDebug(`GeofenceController:updateGeofenceLocationTouchFlag: Geofence location updated with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
 }
 
@@ -475,4 +479,51 @@ export const resetGeofenceLocationTouchFlagToFalse = async (orgId: string, vehic
         type: QueryTypes.UPDATE
     });
     logDebug(`GeofenceController:resetGeofenceLocationTouchFlagToFalse: Resetting touched flag complete for orgId:${orgId} and vehicleGroup:${vehicleGroup}`);
+}
+
+
+/**
+ * TODO fetch geofence location to send notification to parents.
+ * - this is to be done before updateGeofenceLocationTouchFlag().
+ * Logic to send notification to parents.  This notification has to be sent before the vehicle reaches stop.  Ex - when the vehicle is 2km away
+ *  search for the geofence location/ bus stop within 2000meters
+ *  - if found, fetch the tag.
+ *  - fetch citizen_data where assigned vehicle_number='OD02CE2271' and geofence/stop = '2271_Palasuni_Childrens_park_48N26/11'
+ * 
+ * select tag from "GeofenceLocation" 
+    WHERE ST_DWithin(
+   ST_Transform("centerPoint", 3857), 
+   ST_Transform(ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326), 3857),
+   2000) and "orgId"='${orgId}' 
+        and "geofenceLocationGroupName" 
+        in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleNumber"='${vehicleNumber}');
+
+ */
+
+export const fetchGeofenceLocation = async (vehicleNumber: string, orgId: string, longitude: any, latitude: any) => {
+
+    // const subscriptionActive= await isVehicleArrivalNotificationSubscriptionActive(orgId);
+    // if(!subscriptionActive)
+    //     return;
+
+    logDebug(`GeofenceController:fetchGeofenceLocation: Entering with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
+
+    const sqlString = `select tag from "GeofenceLocation" 
+            WHERE ST_DWithin(
+                ST_Transform("centerPoint", 3857), 
+                ST_Transform(ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326), 3857), 2000) 
+                and "orgId"='${orgId}' 
+                and "geofenceLocationGroupName" 
+                in (select "geofenceLocationGroupName" from "Vehicle" where "vehicleNumber"='${vehicleNumber}');`;
+
+    // TODO 2000 meters is hardcoded above. Need to decide whether this should be part of a config.
+    logDebug(`GeofenceController:fetchGeofenceLocation: sqlString:`, sqlString);
+
+    const [geofenceLocation] = await sequelize.query(sqlString, {
+        Model: GeofenceLocation,
+        mapToModel: true,
+        type: QueryTypes.RAW
+    });
+    logInfo(`geofence location fetched: `, geofenceLocation);
+    logDebug(`GeofenceController:fetchGeofenceLocation: Geofence location updated with vehicleNumber:${vehicleNumber}, orgId:${orgId}`);
 }

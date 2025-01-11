@@ -170,6 +170,7 @@ export const searchActiveUserByUserId = async (req: Request, res: Response) => {
                             on o."orgId" = COALESCE(u."secondaryOrgId", u."primaryOrgId")
                             where (u."userId" ='${userId}' or u."email"='${userId}') and u."isActive" = true and o."isActive" = true`;
 
+    logInfo(`UserController:searchUserByUserId: sql string`, sqlString);
     const [user] = await sequelize.query(sqlString, {
         // replacements: [userId, userId],
         Model: User,
