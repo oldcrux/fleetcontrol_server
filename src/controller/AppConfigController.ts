@@ -143,7 +143,7 @@ export const fetchAppConfigByConfigKey = async (configKey: string, orgId?: strin
         configValueFromCache = await redisPool.getConnection().get(`${configKey}`);
     }
     if (configValueFromCache) {
-        logInfo(`AppConfigController:fetchAppConfigByConfigKey: AppConfig fetched from cache: ${configValueFromCache}`);
+        logDebug(`AppConfigController:fetchAppConfigByConfigKey: AppConfig ${configKey}_${orgId} value fetched from Redis cache: ${configValueFromCache}`);
         return configValueFromCache;
     }
     else {
