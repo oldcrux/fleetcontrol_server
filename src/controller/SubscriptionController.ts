@@ -63,7 +63,7 @@ export const isFeatureSubscriptionActive2 = async (featureValue: string, orgId: 
 }
 
 export const createSubscription = async (req: Request, res: Response) => {
-    logDebug(`FeatureController:createSubscription:request body:`, req.body);
+    logDebug(`SubscriptionController:createSubscription:request body:`, req.body);
 
     const days = req.body.days;
     const feature = req.body.feature;
@@ -109,6 +109,42 @@ export const createSubscription = async (req: Request, res: Response) => {
 
 export const extendSubscription = async (req: Request, res: Response) => {
 
+    logDebug(`SubscriptionController:extendSubscription:request body:`, req.body);
+
+    const days = req.body.days;
+    const feature = req.body.feature;
+    const orgId = req.body.orgId;
+    const userId = req.body.loggedinUserId;
+    const subscriptionActive = true;
+    const subscriptionEndDate = new Date();
+    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + days);
+
+    if (!feature || !orgId) {
+        res.status(400).json({ message: `feature and orgId are required` });
+        return;
+    }
+    if (!days) {
+        res.status(400).json({ message: `extension period in terms of days is required` });
+        return;
+    }
+
+    const featureObj = await findFeature(feature);
+    if(!featureObj){
+        res.status(400).json({ message: `feature ${feature} doesnot exists.` });
+        return;
+    }
+    const [updatedCount, updatedRows] = await FeatureSubscription.update(
+        {
+            subscriptionActive: subscriptionActive,
+            subscriptionEndDate: subscriptionEndDate,
+            updatedBy: userId,
+        },
+        { where: { orgId: orgId, feature: feature }, returning: true },
+    );
+    await redisPool.getConnection().set(`${feature}_${orgId}`, 'true', 'EX', 86400); // 24hours timeout in secs
+
+    logInfo(`SubscriptionController:extendSubscription: subscription extended for ${days} days`, updatedCount, updatedRows);
+    res.status(200).json({ message: `subscription of ${feature} is extended for ${days} days` });
 }
 
 export const deleteSubscription = async (req: Request, res: Response) => {
@@ -142,7 +178,7 @@ export const deActivateSubscription = async (req: Request, res: Response) => {
 
     await redisPool.getConnection().set(`${featureValue}_${orgId}`, 'false', 'EX', 86400); // 24hours timeout in secs
 
-    logDebug(`SubscriptionController:deActivateSubscription: subscription deactivated`, updatedCount, updatedRows);
+    logInfo(`SubscriptionController:deActivateSubscription: subscription deactivated`, updatedCount, updatedRows);
     res.status(200).json({ message: `subscription of ${featureValue} is deactivated` });
 }
 
@@ -166,7 +202,7 @@ export const activateSubscription = async (req: Request, res: Response) => {
 
     await redisPool.getConnection().set(`${featureValue}_${orgId}`, 'true', 'EX', 86400); // 24hours timeout in secs
 
-    logDebug(`SubscriptionController:activateSubscription: subscription activated`, updatedCount, updatedRows);
+    logInfo(`SubscriptionController:activateSubscription: subscription activated`, updatedCount, updatedRows);
     res.status(200).json({ message: `subscription of ${featureValue} is activated` });
 }
 

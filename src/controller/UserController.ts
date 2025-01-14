@@ -161,7 +161,7 @@ export const searchUserByUserId = async (req: Request, res: Response) => {
 
 export const searchActiveUserByUserId = async (req: Request, res: Response) => {
     const userId = req.query.userId;
-    logDebug(`UserController:searchUserByUserId: fetching User: ${userId}`, userId);
+    logDebug(`UserController:searchActiveUserByUserId: fetching User: ${userId}`, userId);
     //const sqlString = `select * from "Users" where "userId" = '${userId}' or "email"='${userId}' `;
 
     const sqlString = `select u."userId", u."firstName", u."lastName", u."primaryOrgId", u."secondaryOrgId", u."email", u."isActive", u."role", u."password", o."latitude" , o."longitude"
@@ -170,7 +170,7 @@ export const searchActiveUserByUserId = async (req: Request, res: Response) => {
                             on o."orgId" = COALESCE(u."secondaryOrgId", u."primaryOrgId")
                             where (u."userId" ='${userId}' or u."email"='${userId}') and u."isActive" = true and o."isActive" = true`;
 
-    logInfo(`UserController:searchUserByUserId: sql string`, sqlString);
+    logInfo(`UserController:searchActiveUserByUserId: sql string`, sqlString);
     const [user] = await sequelize.query(sqlString, {
         // replacements: [userId, userId],
         Model: User,
@@ -178,7 +178,7 @@ export const searchActiveUserByUserId = async (req: Request, res: Response) => {
         type: QueryTypes.SELECT
     });
 
-    logDebug(`UserController:searchUserByUserId: User fetched:`, user);
+    logDebug(`UserController:searchActiveUserByUserId: User fetched:`, user);
     res.status(200).json(user);
 }
 
