@@ -16,10 +16,10 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
     if (!decoded) {
         res.status(500).json({ message: "Failed to decode token" });
         return;
-      }
+    }
     // console.log(`decoded token`, decoded);
     const issuer = decoded?.payload?.iss;
-    
+
     // console.log(`issuer:`, issuer);
     if (!issuer) {
         res.status(500).json({ message: "Invalid token: Missing issuer" });
@@ -30,35 +30,35 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
 
     try {
         if (issuer.includes("db")) {
-            try{
-            const payload = jwt.verify(token, process.env.JWT_SECRET as string);
-            // console.log(`db password token`,payload)
-            next();
-        } catch (error) {
-            // console.log(error);
-            if ((error as { name?: string })?.name === 'TokenExpiredError') {
-                res.status(500).json({ message: "Token has expired" });
-                return;
-            } else if ((error as { name?: string })?.name === 'JsonWebTokenError') {
-                res.status(500).json({ message: "Invalid token" });
-                return;
-            } else {
-                res.status(500).json({ message: "Token verification failed" });
-                return;
+            try {
+                const payload = jwt.verify(token, process.env.JWT_SECRET as string);
+                // console.log(`db password token`,payload)
+                next();
+            } catch (error) {
+                // console.log(error);
+                if ((error as { name?: string })?.name === 'TokenExpiredError') {
+                    res.status(500).json({ message: "Token has expired" });
+                    return;
+                } else if ((error as { name?: string })?.name === 'JsonWebTokenError') {
+                    res.status(500).json({ message: "Invalid token" });
+                    return;
+                } else {
+                    res.status(500).json({ message: "Token verification failed" });
+                    return;
+                }
             }
-          }
         }
         else if (issuer.includes("accounts.google.com")) {
             // Validate the access token with Google
             const response = await axios.get(`https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${token}`);
             const tokenInfo = response.data;
-        
+
             // Optional: Check audience (client ID)
             if (tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
                 res.status(401).json({ message: "Unauthorized: Invalid client ID" });
                 return; // Stop further execution
             }
-            
+
             // Attach validated token info to the request
             // console.log(`token info ${tokenInfo}`, tokenInfo);
             // req.user = {
@@ -70,7 +70,7 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
     } catch (error) {
         // console.error("Google token validation error:", error.message);
         // if (error.response && error.response.status === 400) {
-          res.status(401).json({ message: "Unauthorized: Invalid token" });
+        res.status(401).json({ message: "Unauthorized: Invalid token" });
         // } else {
         //   res.status(500).json({ message: "Internal server error" });
         // }
@@ -84,7 +84,9 @@ export default validateToken;
 const resetRequestObject = async (req: Request, decodedPayload: JwtPayload) => {
 
     req.body.loggedinUserId = decodedPayload.payload.user.userId;
-    if(decodedPayload.payload.user.role==='admin' || decodedPayload.payload.user.role==='view'){
-        req.body.orgId = decodedPayload.payload.user.primaryOrgId;
+    if (!req.body.orgId) {
+        if (decodedPayload.payload.user.role === 'admin' || decodedPayload.payload.user.role === 'view') {
+            req.body.orgId = decodedPayload.payload.user.primaryOrgId;
+        }
     }
 }

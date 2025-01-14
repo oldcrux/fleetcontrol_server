@@ -47,7 +47,7 @@ CREATE TABLE "Users" (
 	"createdBy" varchar(50) NOT NULL,
 	"createdAt" timestamptz NOT NULL,
 	"updatedAt" timestamptz NOT NULL,
-	CONSTRAINT "Users_email_key" UNIQUE (email),
+	CONSTRAINT "Users_email_key" UNIQUE ("email"),
 	CONSTRAINT "Users_pkey" PRIMARY KEY ("userId")
 );
 alter table "Users" rename column "orgId" to "primaryOrgId";
@@ -65,7 +65,7 @@ CREATE TABLE "GeofenceLocation" (
 	tag varchar(100) NOT NULL,
 	radius float8 DEFAULT '0'::double precision NOT NULL,
 	center text NULL,
-	"centerPoint" public.geography(point, 4326) NULL,
+	"centerPoint" public.geometry(point, 4326) NULL,
 	polygon text NULL,
 	"geohash" varchar(10) NULL,
 	"touched" boolean default false,
@@ -186,8 +186,47 @@ CREATE TABLE "feature_subscriptions" (
 );
 
 
+CREATE TABLE "citizens_info" (
+	"citizen_id" varchar(50) NOT NULL,
+	"firebase_uid" VARCHAR(255) UNIQUE,
+	"first_name" varchar(50) NOT NULL,
+	"last_name" varchar(50) NOT NULL,
+	"email" varchar(50) NOT NULL,
+	"phoneNumber" varchar(20) NOT NULL,
+	"address_1" varchar(100) NULL,
+	"address_2" varchar(100) NULL,
+	"city" varchar(50) NULL,
+	"state" varchar(20) NULL,
+	"country" varchar(20) NULL,
+	"zip" varchar(20) NULL,
+	"timezone" varchar(20),
+	"auth_type" varchar(20) NOT NULL,
+	"password" varchar(255) NULL,
+	"is_active" BOOLEAN DEFAULT FALSE,
+	center text NULL,
+	"centerPoint" public.geometry(point, 4326) NULL,
+	"created_by" varchar(50) NOT NULL,
+	"updated_by" varchar(50) NOT NULL,
+	"created_at" timestamptz NOT NULL,
+	"updated_at" timestamptz NOT NULL,
+	CONSTRAINT "Users_pkey" PRIMARY KEY ("citizen_Id")
+);
+
+CREATE TABLE "citizens_stop" (
+	"citizen_id" varchar(50) NOT NULL,
+	"org_id" varchar(20) NOT NULL,
+	"assigned_vehicle_number" varchar(20),
+	"assigned_stop" varchar(100),
+	"created_by" varchar(50) NOT NULL,
+	"updated_by" varchar(50) NOT NULL,
+	"created_at" timestamptz NOT NULL,
+	"updated_at" timestamptz NOT NULL,
+	CONSTRAINT "Users_pkey" PRIMARY KEY ("citizen_Id")
+);
+
 insert into "Organization" values
 ('oldcrux', 'oldcrux', 'oldcrux', '1234567890', 'support@oldcrux.com', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', 20.3010259,85.7380515, 'sysadmin', now(), now(), 'system', null, true );
 
 insert into "Users" values 
 ('sysadmin', 'oldcrux', 'system', 'oldcrux', 'support@oldcrux.com', '1234567890', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', '$2a$10$5NMZNw0YDbIXKX3oAsorhe/YDl92DN7zV9O.HdXRXWHFB7BhIPh6W', true, 'sysadmin', now(), now(),null, 'system', 'db');
+--Password01!
