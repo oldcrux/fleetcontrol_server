@@ -1,8 +1,5 @@
 import { Request, Response } from 'express';
 import Organization from '../dbmodel/organization';
-import { randomUUID } from 'crypto';
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { firebaseDb } from "../util/firebasedb";
 import { logDebug, logger, logInfo } from '../util/Logger';
 import sequelize from '../util/sequelizedb';
 import { QueryTypes } from 'sequelize';

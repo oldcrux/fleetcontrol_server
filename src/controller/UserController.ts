@@ -1,7 +1,4 @@
 import { Request, Response } from 'express';
-
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { firebaseDb } from "../util/firebasedb";
 import User from '../dbmodel/user';
 import { logDebug, logError, logger, logInfo } from '../util/Logger';
 import sequelize from '../util/sequelizedb';
