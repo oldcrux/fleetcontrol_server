@@ -155,8 +155,16 @@ export const vehicleTelemetryDataParseAndIngest = async (data: string) => {
     const vehicle: any = await fetchAllVehicleBySerialNumber(parsedMessage.serialNumber);
     const vehicleNumber = vehicle!.vehicleNumber;
 
-    const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, overspeed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp) 
-    VALUES ('${vehicleNumber}', '${parsedMessage.serialNumber}', ${parsedMessage.speed}, ${parsedMessage.overspeed}, ${parsedMessage.latitude}, ${parsedMessage.longitude}, make_geohash(${parsedMessage.latitude}, ${parsedMessage.longitude}, ${pointWithinRadius}), ${parsedMessage.ignition}, ${parsedMessage.odometer}, ${parsedMessage.headingDirectionDegree}, now() )`;
+    if(!vehicleNumber){
+        logError(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: no vehicle configured for serial number ${parsedMessage.serialNumber}. Exiting`);
+        return;
+    }
+
+    //TODO calculate idle time for today
+    const idleDurationInSeconds = await calculateIdleDurationToday(vehicleNumber, parsedMessage.speed, parsedMessage.ignition);
+
+    const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, overspeed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp, idleDuration) 
+    VALUES ('${vehicleNumber}', '${parsedMessage.serialNumber}', ${parsedMessage.speed}, ${parsedMessage.overspeed}, ${parsedMessage.latitude}, ${parsedMessage.longitude}, make_geohash(${parsedMessage.latitude}, ${parsedMessage.longitude}, ${pointWithinRadius}), ${parsedMessage.ignition}, ${parsedMessage.odometer}, ${parsedMessage.headingDirectionDegree}, now(), ${idleDurationInSeconds} )`;
 
     logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: insertQuery:`, insertQuery);
     const response = await axios.get(
@@ -175,6 +183,66 @@ export const updateGeofenceLocation = async (vehicleNumber: string, orgId: strin
     // const geohash = await makeGeohash(latitude, longitude, orgId);
     await updateGeofenceLocationTouchFlag(vehicleNumber, orgId, longitude, latitude);
     logDebug(`VehicleTelemetryDataController:updateGeofenceLocation: updated Geofence Location Touch flag`);
+}
+
+export const calculateIdleDurationToday = async(vehicleNumber: string, speed: number, ignition: number) => {
+    /**
+     * select the previous record of the vehicle
+     *      check the datediff
+     *          - if 1, i.e, date changed at midnight, start fresh calculation, So insert with idle==0.
+     *          - if 0, 
+     *              previous record.idleDuration + now() - previous record.timestamp;
+     * if speed> 1 and ignition==1
+     *      select the previous record of the vehicle
+     *          copy the idle time to current record
+     * if speed==0 and ignition==0
+     *      select the previous record of the vehicle
+     *          copy the idle time to current record
+     * if speed==1 and ignition==0
+     *      THIS CONDITION DOESNOT EXISTS
+     * 
+     * if speed==0 and ignition==1
+     * 
+     */
+
+    const sqlString=`select * from VehicleTelemetry where vehicleNumber='${vehicleNumber}' LATEST ON timestamp PARTITION BY vehicleNumber`;
+    const data = await queryQuestDB(sqlString);
+    if(!data || !data[0]){
+        return 0;
+    }
+    const telemetryData = data[0];
+    logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday:`, telemetryData);
+
+    const now = new Date();
+    const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const recordDate = new Date(telemetryData.timestamp!);
+  
+    const recordDateOnly = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+    // Compare the two dates (ignoring time)
+    if (currentDate.getTime() !== recordDateOnly.getTime()) {
+        logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: date changed. returning 0`,);
+        return 0; // Idle time is 0.
+    }
+    else{
+        logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: date NOT changed. Doing further calculation`);
+        if(speed> 0 && ignition===1){
+            logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: speed > 0 and ignition=1. returning ${telemetryData.idleDuration?? 0}`);
+            return telemetryData.idleDuration?? 0;
+        }
+        else if(speed=== 0 && ignition===0){
+            logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: speed == 0 and ignition==0. returning ${telemetryData.idleDuration ?? 0}`);
+            return telemetryData.idleDuration?? 0;
+        }
+        else if(speed=== 0 && ignition===1){
+            const diffSeconds = Math.ceil ((now.getTime() - recordDate.getTime()) /1000);
+            logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: diff in millisecs: ${diffSeconds}`);
+            // let idleDurationInSeconds = Math.floor(diffSeconds / 1000);
+            let idleDurationInSeconds = 0;
+            idleDurationInSeconds = diffSeconds + Number(telemetryData.idleDuration?? 0);
+            logDebug(`VehicleTelemetryDataController:calculateIdleDurationToday: speed == 0 and ignition==1. returning ${idleDurationInSeconds}`);
+            return idleDurationInSeconds;
+        }
+    }
 }
 
 // TODO *** NOT USED ***
@@ -227,10 +295,16 @@ export const vehicleTelemetryDataIngest = async (req: Request, res: Response) =>
             const vehicle: any = await fetchAllVehicleBySerialNumber(req.body.serialNumber);
             const vehicleNumber = vehicle.vehicleNumber;
 
+            if(!vehicleNumber){
+                logError(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: no vehicle configured for serial number ${req.body.serialNumber}. Exiting`);
+                return;
+            }
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataIngest: persisting for vehicle Number: ${vehicleNumber}`);
 
-            const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp) 
-    VALUES ('${vehicleNumber}', '${serialNumber}', ${speed},  ${latitude}, ${longitude}, make_geohash(${latitude}, ${longitude}, ${pointWithinRadius}), ${ignition}, ${odometer}, ${headingDirectionDegree}, now() )`;
+            const idleDurationInSeconds = await calculateIdleDurationToday(vehicleNumber, speed, ignition);
+
+            const insertQuery = `INSERT INTO ${vehicleTelemetryTable} (vehicleNumber, serialNumber, speed, latitude, longitude, geohash, ignition, odometer, headingDirectionDegree, timestamp, idleDuration) 
+    VALUES ('${vehicleNumber}', '${serialNumber}', ${speed},  ${latitude}, ${longitude}, make_geohash(${latitude}, ${longitude}, ${pointWithinRadius}), ${ignition}, ${odometer}, ${headingDirectionDegree}, now(), ${idleDurationInSeconds} )`;
 
             logDebug(`VehicleTelemetryDataController:vehicleTelemetryDataParseAndIngest: insertQuery:`, insertQuery);
             const response = await axios.get(
@@ -519,6 +593,37 @@ export const fetchTodaysTouchedGeolocationCount = async (vehicleNumbers: string,
         return vehicletelemetry;
     }
 }
+
+/**
+ * final Idle duration = idleDuration from vehicle telemetry substract total of allocated Halt Duration of touched geofences
+ */
+export const fetchFinalIdleDurationInMin = async (vehicleNumbers: string, orgId: string) => {
+    const latestGeofenceReportName = await fetchLatestGeofenceReportNameOfOrg(orgId);
+    if(!latestGeofenceReportName)
+        return;
+
+    const sqlString=`SELECT 
+            v.vehicleNumber,
+            (floor(v.idleDuration/60) - COALESCE(g.allocatedHaltDuration, 0)) AS finalIdleDuration
+                FROM (
+                    SELECT idleDuration, vehicleNumber
+                    FROM ${vehicleTelemetryTable}
+                    WHERE idleDuration IS NOT NULL and vehicleNumber in (${vehicleNumbers})
+                    LATEST ON timestamp PARTITION BY vehicleNumber
+                ) v
+                LEFT JOIN (
+                    SELECT vehicleNumber, SUM(allocatedHaltDuration) AS allocatedHaltDuration
+                    FROM ${geofenceTelemetryReportTable} where touchedLocation=true and reportName='${latestGeofenceReportName.reportName}' and vehicleNumber in (${vehicleNumbers})
+                    GROUP BY vehicleNumber
+                ) g
+                ON v.vehicleNumber = g.vehicleNumber;`;
+
+    logDebug(`VehicleTelemetryDataController:fetchFinalIdleDurationInMin: sql formed:`, sqlString);
+    const data = await queryQuestDB(sqlString);
+    logDebug(`VehicleTelemetryDataController:fetchFinalIdleDurationInMin: Idle duration fetched for vehicles`, data);
+    return data;
+}
+
 
 /** 
  * Method to fetch vehicle's start time today.  This will return the result of all vehicles if input is missing.
@@ -1406,6 +1511,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                             .stringColumn('geofenceLocationTag', geofence.tag)
                             .booleanColumn('touchedLocation', matchTrueFalse)
                             .floatColumn('timeSpent', timeSpent)
+                            .floatColumn('allocatedHaltDuration', geofence.haltDuration)
                             .stringColumn('scheduleArrivalTime', scheduleArrivalTime)
                             .stringColumn('arrivalTime', arrivalTime!)
                             .stringColumn('departureTime', departureTime!)
@@ -1420,6 +1526,7 @@ export const processGeofenceTelemetryReport = async (orgId: any) => {
                             .stringColumn('geofenceLocationTag', geofence.tag)
                             .booleanColumn('touchedLocation', matchTrueFalse)
                             .floatColumn('timeSpent', timeSpent)
+                            .floatColumn('allocatedHaltDuration', geofence.haltDuration)
                             .stringColumn('scheduleArrivalTime', scheduleArrivalTime)
                             .atNow();
                     }
@@ -1491,10 +1598,11 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
     const mileageReadings = await fetchTodaysMileage(vehicleNumbers);
     const touchedGeolocationCounts = await fetchTodaysTouchedGeolocationCount(vehicleNumbers, orgId);
     const vehicleStartTimeToday = await fetchVehicleStartTimeToday(vehicleNumbers);
+    const idleDurations = await fetchFinalIdleDurationInMin(vehicleNumbers, orgId);
 
     let geoLocationCountMap = [];
     if (touchedGeolocationCounts) {
-        console.log(`touched Geolocation Counts length: ${touchedGeolocationCounts.length}`);
+        logDebug(`touched Geolocation Counts length: ${touchedGeolocationCounts.length}`);
         if (touchedGeolocationCounts.length <= 0) {
             // logWarn(`VehicleTelemetryDataController:processVehicleTelemetryReport2:*** No GeofenceTelemetry Report got generated or No locations touched. Possibily query timestamp issue. ***`);
             // return;
@@ -1507,12 +1615,15 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
 
     const vehicleStartTimeTodayMap = Object.fromEntries(vehicleStartTimeToday!.map(v => [v.vehicleNumber, v.startTime]));
 
+    const idleDurationsMap = Object.fromEntries(idleDurations!.map(v => [v.vehicleNumber, v.finalIdleDuration]));
+
     const mergedPayload = getAllVehicles.map((vehicle: { vehicleNumber: any; }) => {
         return {
             ...vehicle,
             touchedLocationCount: geoLocationCountMap[vehicle.vehicleNumber] || "",
             mileage: mileageMap[vehicle.vehicleNumber] || "",
             actualStartTime: vehicleStartTimeTodayMap[vehicle.vehicleNumber] || "",
+            idleDuration: idleDurationsMap[vehicle.vehicleNumber] || "",
         };
     });
 
@@ -1522,6 +1633,7 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
         const geoLocationsCount = vehicle.geoLocationsCount ? vehicle.geoLocationsCount : 0;
         const touchedLocationCount = vehicle.touchedLocationCount ? vehicle.touchedLocationCount : 0;
         const mileage = vehicle.mileage ? vehicle.mileage : 0;
+        const idleDuration = vehicle.idleDuration ? vehicle.idleDuration : 0;
         const geofenceLocationGroupName = vehicle.geofenceLocationGroupName ? vehicle.geofenceLocationGroupName : "";
         const vehicleGroup = vehicle.vehicleGroup ? vehicle.vehicleGroup : "";
 
@@ -1539,8 +1651,10 @@ export const processVehicleTelemetryReport2 = async (orgId: any) => {
             .floatColumn('assignedGeofenceLocationCount', parseInt(geoLocationsCount))
             .floatColumn('touchedLocationCount', parseInt(touchedLocationCount))
             .floatColumn('mileage', parseFloat(mileage))
+            .floatColumn('idleDuration', parseFloat(idleDuration))
             .atNow();
 
+            
     }
     await localSender.flush();
 
@@ -1811,23 +1925,11 @@ const exportGeofenceTelemetryReport = async (reportName: any, orgId: string) => 
 }
 
 const fetchGeofenceTelemetryReportByReportName = async (reportName: any) => {
-    const sqlString = `select * from ${geofenceTelemetryReportTable} where reportName='${reportName}'`;
+    const sqlString = `select reportName, orgId, vehicleNumber, geofenceLocationGroupName, geofenceLocationTag, 
+        touchedLocation, timeSpent, allocatedHaltDuration, arrivalTime, departureTime, scheduleArrivalTime 
+        from ${geofenceTelemetryReportTable} where reportName='${reportName}'`;
 
     logDebug(`VehicleTelemetryDataController:fetchGeofenceTelemetryReportByReportName: query:`, sqlString);
-    // const response = await axios.get(`http://${questdbHost}/exec?query=${encodeURIComponent(query)}`);
-    // const json = await response.data;
-
-    // const columns: string[] = json.columns.map((col: { name: any; }) => col.name);
-    // const dataset: (string | number | null)[][] = json.dataset;
-
-    // const geofenceTelemetryReport = dataset.map(row => {
-    //     const obj: { [key: string]: string | number | null } = {};
-    //     columns.forEach((col, index) => {
-    //         obj[col] = row[index];  // Map each column name to the corresponding value in the row
-    //     });
-    //     return obj;
-    // });
-
     const geofenceTelemetryReport = queryQuestDB(sqlString);
 
     logDebug(`VehicleTelemetryDataController:fetchGeofenceTelemetryReportByReportName: Geofence Telemetry data fetched:`, geofenceTelemetryReport);
@@ -1871,7 +1973,7 @@ const fetchVehicleTelemetryReportByReportName = async (reportName: any) => {
         CASE 
     WHEN actualStartTime = '' THEN null
     ELSE to_timezone(cast(actualStartTime AS timestamp), 'Asia/Kolkata') 
-    END AS actualStartTime,  assignedGeofenceLocationCount, touchedLocationCount, mileage
+    END AS actualStartTime,  assignedGeofenceLocationCount, touchedLocationCount, mileage, idleDuration
         from ${vehicleTelemetryReportTable} where reportName='${reportName}' order by actualStartTime desc;`;
 
     logDebug(`VehicleTelemetryDataController:fetchVehicleTelemetryReportByReportName: sqlString:`, sqlString);

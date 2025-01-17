@@ -11,11 +11,13 @@
         ignition byte,
         odometer DOUBLE,
         headingDirectionDegree DOUBLE,
+        idleDuration DOUBLE,
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
 
     -- ALTER TABLE VehicleTelemetry ALTER COLUMN ignition TYPE byte;
     -- ALTER TABLE VehicleTelemetry ADD COLUMN overspeed byte;
+    ALTER TABLE VehicleTelemetry ADD COLUMN idleDuration DOUBLE;
     -- ALTER TABLE vehicleTelemetry DEDUP ENABLE UPSERT KEYS(timestamp, vehicleNumber, latitude, longitude);
     -- ALTER TABLE vehicle_telemetry DEDUP DISABLE;
 
@@ -27,11 +29,14 @@
         geofenceLocationTag VARCHAR,
         touchedLocation BOOLEAN,
         scheduleArrivalTime VARCHAR;
+        allocatedHaltDuration DOUBLE,
         timeSpent DOUBLE,
         arrivalTime VARCHAR,
         departureTime VARCHAR,
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
+
+    ALTER TABLE GeofenceTelemetryReport ADD COLUMN allocatedHaltDuration DOUBLE;
 
 
     CREATE TABLE 'VehicleTelemetryReport' (
@@ -46,12 +51,14 @@
         assignedGeofenceLocationCount DOUBLE,
         touchedLocationCount DOUBLE,
         mileage DOUBLE,
+        idleDuration DOUBLE,
         timestamp TIMESTAMP
     ) timestamp (timestamp) PARTITION BY DAY WAL;
 
     ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleStatus VARCHAR;
     ALTER TABLE VehicleTelemetryReport ADD COLUMN vehicleGroup VARCHAR;
     ALTER TABLE VehicleTelemetryReport RENAME COLUMN owner to vendor;
+    ALTER TABLE VehicleTelemetryReport ADD COLUMN idleDuration DOUBLE;
 
 
 /*query to pull yesterday's TIFFA report*/
