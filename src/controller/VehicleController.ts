@@ -7,7 +7,7 @@ import express, { Request, Response } from 'express';
 import Vehicle from '../dbmodel/vehicle';
 import sequelize from '../util/sequelizedb';
 import { Model, QueryTypes } from 'sequelize';
-import { fetchAllRunningVehicleNumbers, fetchIdleVehicles, fetchRunningVehicles, fetchSpeedingVehicles, fetchVehiclesWithIgnitionOff } from './VehicleTelemetryDataController';
+import { fetchAllRunningVehicleNumbersLast24Hour, fetchAllRunningVehiclesLast24Hour, fetchGhostVehiclesFromQuestDB, fetchIdleVehicles, fetchRunningVehicles, fetchSpeedingVehicles, fetchVehiclesWithIgnitionOff } from './VehicleTelemetryDataController';
 import { redisPool } from '../util/RedisConnection';
 import { logDebug, logError, logger, logInfo } from '../util/Logger';
 import { isNullOrUndefinedOrNaN } from '../util/CommonUtil';
@@ -322,7 +322,7 @@ export const fetchAllVehicleBySerialNumber = async (serialNumber: string) => {
         if (results.length > 1) {
             logError(`VehicleController:fetchAllVehicleBySerialNumber: more than 1 vehicle fetched for the serialNumber`, results);
         }
-        if(results.length === 0){
+        if (results.length === 0) {
             logError(`VehicleController:fetchAllVehicleBySerialNumber: No vehicles fetched for the serial number ${serialNumber}`);
             return;
         }
@@ -639,6 +639,31 @@ function convertToVehiclesApiResponse(vehicleJson: any, totalRowCount: any) {
 //     }
 // }
 
+export const fetchGhostVehiclesCount = async (vehicleNumbers: string) => {
+    const runningVehicleNumbers = await fetchAllRunningVehiclesLast24Hour(vehicleNumbers);
+    logDebug(`VehicleController:fetchGhostVehicles: All running vehicle Numbers: ${runningVehicleNumbers}`, runningVehicleNumbers);
+    let query;
+    let runningVehicleNumberString;
+    let result;
+    if (runningVehicleNumbers && runningVehicleNumbers.length > 0) {
+        runningVehicleNumberString = runningVehicleNumbers.map((vehicle: any) => `'${vehicle.vehicleNumber}'`).join(', ');
+        query = `select count(*) from "Vehicle" where "vehicleNumber" not in ( ${runningVehicleNumberString})`;
+
+        const retVal = await sequelize.query(`${query}`, {
+            // replacements: [orgId],
+            Model: Vehicle,
+            mapToModel: true,
+            type: QueryTypes.RAW
+        });
+        result = Number(retVal[0][0].count);
+    } else {
+        // None of the vehicles ran in last 24 hours.  Returning the size of vehicleNumbers
+        result = vehicleNumbers.split(',').length;
+    }
+    logDebug(`VehicleController:fetchGhostVehicles: fetched all ghost vehicle counts`, result);
+    return result;
+}
+
 /** Ghost Vehicles: Vehicle that never sent data */
 export const fetchGhostVehicles = async (req: Request, res: Response) => {
     logDebug(`VehicleController:fetchGhostVehicles: Entering with request:`, req.query);
@@ -651,7 +676,7 @@ export const fetchGhostVehicles = async (req: Request, res: Response) => {
     }
     if (orgId) {
         const allVehicles = await fetchAllVehicleByOrganization2(orgId, vendorId, queryString);
-        const runningVehicleNumbers = await fetchAllRunningVehicleNumbers(allVehicles);
+        const runningVehicleNumbers = await fetchAllRunningVehicleNumbersLast24Hour(allVehicles);
 
         let query;
         let runningVehicleNumberString;
@@ -670,8 +695,13 @@ export const fetchGhostVehicles = async (req: Request, res: Response) => {
             mapToModel: true,
             type: QueryTypes.RAW
         });
-        logDebug(`VehicleController:fetchGhostVehicles: fetched all idle vehicles`, results);
-        res.status(200).json(results);
+
+        const vehicleNumbers = results.map((vehicles: { vehicleNumber: any; }) => `'${vehicles.vehicleNumber}'`).join(', ');
+        const vehiclesFromQuestDB = await fetchGhostVehiclesFromQuestDB(vehicleNumbers);
+        const finalResult = mergeVehicleDatafromQuestDBAndPostgresql(vehiclesFromQuestDB, results);
+
+        logDebug(`VehicleController:fetchGhostVehicles: fetched all ghost vehicles`, finalResult);
+        res.status(200).json(finalResult);
     }
 }
 
@@ -794,10 +824,13 @@ export const fetchVehiclesByVehicleNumber = async (orgId: string, vehicleNumbers
 function mergeVehicleDatafromQuestDBAndPostgresql(vehicleFromQuest: any, vehicleFromPostgresql: any) {
     const map = new Map();
 
+    logDebug(`VehicleController:mergeVehicleDatafromQuestDBAndPostgresql: mearging data from questdb and postgresql`, vehicleFromQuest, vehicleFromPostgresql);
     // Add all entries from array1 to the map by vehicleNumber
-    vehicleFromQuest.forEach((item: { vehicleNumber: any; }) => {
-        map.set(item.vehicleNumber, { ...item });
-    });
+    if (Array.isArray(vehicleFromQuest) && vehicleFromQuest !== null) {
+        vehicleFromQuest.forEach((item: { vehicleNumber: any; }) => {
+            map.set(item.vehicleNumber, { ...item });
+        });
+    }
 
     // Merge matching entries from array2
     vehicleFromPostgresql.forEach((item: { vehicleNumber: any; }) => {
@@ -807,5 +840,6 @@ function mergeVehicleDatafromQuestDBAndPostgresql(vehicleFromQuest: any, vehicle
             map.set(item.vehicleNumber, { ...item });
         }
     });
+    logDebug(`VehicleController:mergeVehicleDatafromQuestDBAndPostgresql:returning `, map);
     return Array.from(map.values());
 }
