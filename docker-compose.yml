@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: fleetdb
+      POSTGRES_PASSWORD: fleetdb_000
+      POSTGRES_DB: fleetdb_db
+    ports:
+      - "54320:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  questdb:
+    image: questdb/questdb:8.1.0
+    hostname: questdb
+    container_name: questdb
+    ports:
+      - "8812:8812"
+      - "9000:9000"
+    volumes:
+      - questdb_data:/root/.questdb/db
+    environment:
+      - QDB_PG_READONLY_USER_ENABLED=true
+      - PG_READONLY_USER=readonly
+      - PG_READONLY_PASSWORD=readonly
+
+  grafana:
+    image: grafana/grafana:latest
+    hostname: grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "5000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+  redis:
+    image: redis:7.4
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  questdb_data:
+  grafana-storage:
+  redis_data:

@@ -146,14 +146,14 @@ delete from "AppConfig" where "configKey" = 'questdb_geohash_precision';
 
 [
     {
-        "orgId": "bmc",
+        "orgId": "abc",
         "configKey": "FollowDefaultGeohashPrecision",
         "configValue": "1",
         "comments": "Make the system ignore radius of each geofence and consider PointWithinRadiusAccuracyInMeter",
         "createdBy":"admin"
     },
     {
-        "orgId": "bmc",
+        "orgId": "abc",
         "configKey": "PointWithinRadiusAccuracyInMeter",
         "configValue": "30",
         "comments": "value in meters. Default 30. Org level config",
@@ -188,7 +188,7 @@ CREATE TABLE "feature_subscriptions" (
 
 CREATE TABLE "citizens_info" (
 	"citizen_id" varchar(50) NOT NULL,
-	"firebase_uid" VARCHAR(255) UNIQUE,
+	"fcm_token" VARCHAR(255) UNIQUE,
 	"first_name" varchar(50) NOT NULL,
 	"last_name" varchar(50) NOT NULL,
 	"email" varchar(50) NOT NULL,
@@ -225,8 +225,8 @@ CREATE TABLE "citizens_stop" (
 );
 
 insert into "Organization" values
-('oldcrux', 'oldcrux', 'oldcrux', '1234567890', 'support@oldcrux.com', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', 20.3010259,85.7380515, 'sysadmin', now(), now(), 'system', null, true );
+('abc', 'abc', 'abc', '1234567890', 'support@abc.com', 'abc pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', 20.3010259,85.7380515, 'sysadmin', now(), now(), 'system', null, true );
 
 insert into "Users" values 
-('sysadmin', 'oldcrux', 'system', 'oldcrux', 'support@oldcrux.com', '1234567890', 'oldcrux pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', '$2a$10$5NMZNw0YDbIXKX3oAsorhe/YDl92DN7zV9O.HdXRXWHFB7BhIPh6W', true, 'sysadmin', now(), now(),null, 'system', 'db');
+('sysadmin', 'abc', 'system', 'abc', 'support@abc.com', '1234567890', 'abc pvt ltd', null, 'Bhubaneswar', 'Odisha', 'India', '751022', '$2a$10$5NMZNw0YDbIXKX3oAsorhe/YDl92DN7zV9O.HdXRXWHFB7BhIPh6W', true, 'sysadmin', now(), now(),null, 'system', 'db');
 --Password01!

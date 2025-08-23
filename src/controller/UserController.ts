@@ -203,9 +203,9 @@ export const updatePassword = async (req: Request, res: Response) => {
 }
 
 /** 
- * Delete user request will only be raised by primary org User (Ex. bmc admin user)
- * bmc admin user can delete any admin/view user, where primary org Id = bmc, 
- * can delete any view user, where secondary org Id = bmc)
+ * Delete user request will only be raised by primary org User (Ex. abc admin user)
+ * abc admin user can delete any admin/view user, where primary org Id = abc, 
+ * can delete any view user, where secondary org Id = abc)
  */
 export const deleteUser = async (req: Request, res: Response) => {
     logInfo(`UserController:deleteUser: User delete request`, req.body);

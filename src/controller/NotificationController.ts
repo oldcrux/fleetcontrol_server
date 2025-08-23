@@ -175,7 +175,7 @@ async function sendEmail(filePath: any, orgId: string) {
         logDebug(`NotificationController:generateExcel: mail subscribers`, subscribers);
 
         const mailOptions = {
-            from: 'OldCrux FleetControl <support@oldcrux.com>',
+            from: 'abc FleetControl <support@abc.com>',
             to: `${subscribers}`,
             subject: `Report ${filePath}`,
             text: `Please find the attached report ${filePath} in Excel format.`,
@@ -189,7 +189,7 @@ async function sendEmail(filePath: any, orgId: string) {
                         <p style="margin: 0;">Note: This is an automated email from an unmonitored mailbox. Please do not reply to this message.</p>
                         </div>
                         <div style="margin-top: 20px; font-size: 12px; font-family: 'Montserrat', sans-serif; text-align: center; color: #999999;">
-                        <p style="margin: 0;">© ${new Date().getFullYear()} OldCrux Pvt Ltd. All rights reserved.</p>
+                        <p style="margin: 0;">© ${new Date().getFullYear()} abc Pvt Ltd. All rights reserved.</p>
                         </div>
                     </body>
                     </html>`,

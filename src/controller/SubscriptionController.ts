@@ -116,8 +116,6 @@ export const extendSubscription = async (req: Request, res: Response) => {
     const orgId = req.body.orgId;
     const userId = req.body.loggedinUserId;
     const subscriptionActive = true;
-    const subscriptionEndDate = new Date();
-    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + days);
 
     if (!feature || !orgId) {
         res.status(400).json({ message: `feature and orgId are required` });
@@ -127,6 +125,9 @@ export const extendSubscription = async (req: Request, res: Response) => {
         res.status(400).json({ message: `extension period in terms of days is required` });
         return;
     }
+
+    const subscriptionEndDate = new Date();
+    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + days);
 
     const featureObj = await findFeature(feature);
     if(!featureObj){

@@ -44,7 +44,7 @@ const sender = Sender.fromConfig(conf);
     insert into geofence
     (tag, geofenceType, center, radius, polygon, timestamp, orgId, createdBy)
     VALUES
-    ('tag1', 'circle', '{"lat":-33.87940684078143,"lng":151.15148974704164}', 683, '' , to_timestamp('2019-10-17T00:00:00', 'yyyy-MM-ddTHH:mm:ss'), 'bmc', 'rashmi')
+    ('tag1', 'circle', '{"lat":-33.87940684078143,"lng":151.15148974704164}', 683, '' , to_timestamp('2019-10-17T00:00:00', 'yyyy-MM-ddTHH:mm:ss'), 'abc', 'rashmi')
 
     
 

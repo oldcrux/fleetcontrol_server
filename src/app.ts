@@ -55,7 +55,7 @@ app.use(express.json({ limit: '10mb' }));
 const corsOptions = {
   // origin: true, // Replace with your frontend URL
   origin: process.env.NODE_ENV === 'production' 
-    ? 'https://fleetcontrol.oldcrux.com' // Production URL
+    ? 'https://fleetcontrol.abc.com' // Production URL
     : 'http://localhost:3000', 
   methods: ['GET', 'POST'], // Allowed methods
   allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
