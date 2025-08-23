@@ -6,7 +6,7 @@ This is a highly scalable production grade, saas ready fleet control reporting a
 This application can be connected to a fleet of vehicles via tcp connection and can receive data as frequently as 10 sec.  There is a rate limiter implemented and configurable via an application parameter, in case you want to turn on/off or manage the frequency of tcp data inflow.
 
 ## Architecture diagram
-👉🏻 [Architecture diagram](./architecture.png)
+👉🏻 [Architecture diagram](docs/architecture.png)
 
 👉🏻 For detailed load testing and resource utilization, see the [Performance Report](docs/Performance.md).
 
@@ -27,11 +27,9 @@ This application can be connected to a fleet of vehicles via tcp connection and 
     1. Basic username and password.
     2. Google OAuth.
 
-⚠️ Default setup is for local/dev only. For production, configure HTTPS, secure JWT secrets, email SMTP credentials, and proper rate-limiting.
-
-3. Vendor onboarding. A vendor can be a contractor witha fleet of vehicles. A fleet can belong to a main organization or a vendor.
+3. Vendor onboarding. A vendor can be a contractor with a fleet of vehicles. A fleet can belong to a main organization or a vendor.
 4. Vehicle onboarding and tracking.
-5. Create geofences and assign a group of geofences to a vehicle
+5. Create geofences and assign a group of geofences to a vehicle.
 6. Generate on-demand vehicle telemetry reports for the day with data like, total running time, total idle duration, geofences covered, time spent any assigned geofence location etc.
 7. Geofence accuracy - This is a configurable number by which geohashing precision is calculated and determined whether a vehicle has traveled to an assigned geofence location. This can be configured at each Org level and defaulted to 30 meters.
 8. Vehicle arrival window - A configurable time window, lets say 15mins to determine whether a vehicle has arrived an assigned location or not.
@@ -139,6 +137,8 @@ npm run dev
 ```
 
 ###### Docker Build and Push
+```
 npm run build
 docker build --no-cache --platform linux/amd64 -t <your repo> .
 docker push <your repo>
+```
