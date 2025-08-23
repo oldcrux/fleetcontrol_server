@@ -25,25 +25,8 @@ import validateToken from "./middlewares";
 import { searchActiveUserByUserId, searchUserByUserId } from "./controller/UserController";
 
 require("dotenv").config();
-// const { InfluxDB, HttpError, Point } = require("@influxdata/influxdb-client");
-// const { OrgsAPI, BucketsAPI } = require("@influxdata/influxdb-client-apis");
-// const axios = require("axios");
 const cors = require('cors');
 
-
-// const organizationName = process.env.INFLUXDB_ORGANIZATION;
-// const organizationID = process.env.ORGANIZATION_ID;
-// const url = process.env.INFLUXDB_HOST;
-// const token = process.env.INFLUXDB_TOKEN;
-// const bucketName = process.env.INFLUXDB_BUCKET;
-
-// // client for accessing InfluxDB
-// const client = new InfluxDB({ url, token });
-// const writeAPI = client.getWriteApi(organizationName, bucketName);
-// const queryClient = client.getQueryApi(organizationName);
-
-// set up your server and begin listening on port 8080.
-//const express = require("express");
 const app = express();
 const PORT = 8080;
 const TCP_PORT = 4000;
@@ -63,14 +46,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// app.use("/", (req, res, next) => {
-//   console.log("A new request was received at " + Date.now());
-//   next();
-// });
-// app.js
-
-// console.log(`Initializing logger with current log level: ${logger.level}`);
-
 if (cluster.isPrimary) {
   // Fork workers
   logInfo(`app.ts:no of CPUs: ${numCPUs}`);
@@ -83,29 +58,18 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 
-  //************* Verify the connection pool at startup *************
-  // const checkDatabaseConnection = async () => {
+
+  //************* TODO remove the async() & this whole block *************
+  // (async () => {
   //   try {
-  //     await mysqlConnection.query('SELECT 1');
-  //     console.log('Database connection verified.');
+  //     // Synchronize all defined models with the database
+  //     await sequelize.sync();
+  //     logInfo('Database synchronized.');
+
   //   } catch (error) {
-  //     console.error('Error connecting to the database:', error);
+  //     logError('Unable to connect to the database:', error);
   //   }
-  // };
-  // checkDatabaseConnection();
-
-
-  //************* TODO remove the sync() & this whole block *************
-  (async () => {
-    try {
-      // Synchronize all defined models with the database
-      await sequelize.sync();
-      logInfo('Database synchronized.');
-
-    } catch (error) {
-      logError('Unable to connect to the database:', error);
-    }
-  })();
+  // })();
   // *************                *************
 
   createGeofenceTouchStatusResetWorkers();

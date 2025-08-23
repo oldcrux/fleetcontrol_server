@@ -32,10 +32,8 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
         if (issuer.includes("db")) {
             try {
                 const payload = jwt.verify(token, process.env.JWT_SECRET as string);
-                // console.log(`db password token`,payload)
                 next();
             } catch (error) {
-                // console.log(error);
                 if ((error as { name?: string })?.name === 'TokenExpiredError') {
                     res.status(500).json({ message: "Token has expired" });
                     return;
@@ -58,28 +56,15 @@ const validateToken = async (req: Request, res: Response, next: NextFunction): P
                 res.status(401).json({ message: "Unauthorized: Invalid client ID" });
                 return; // Stop further execution
             }
-
-            // Attach validated token info to the request
-            // console.log(`token info ${tokenInfo}`, tokenInfo);
-            // req.user = {
-            //     email: tokenInfo.email,
-            //     expiresIn: tokenInfo.expires_in,
-            // };
             next(); // Proceed to the next middleware or route handler
         }
     } catch (error) {
-        // console.error("Google token validation error:", error.message);
-        // if (error.response && error.response.status === 400) {
         res.status(401).json({ message: "Unauthorized: Invalid token" });
-        // } else {
-        //   res.status(500).json({ message: "Internal server error" });
-        // }
         return; // Stop execution after sending the response
     }
 };
 
 export default validateToken;
-
 
 const resetRequestObject = async (req: Request, decodedPayload: JwtPayload) => {
 
