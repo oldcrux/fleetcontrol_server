@@ -421,7 +421,7 @@ export const fetchAllVehicleByOrganization2 = async (orgId: string, vendorId: st
 export const fetchVehiclesAndGeoByOrganization = async (orgId: any) => {
     // process.emitWarning(`This method is unused and marked deprecated.`);
     /*
-    select vehicleNumber from vehicle where organization='bmc';
+    select vehicleNumber from vehicle where organization='abc';
     */
     const [results, fields] = await sequelize.query(`select "vehicleNumber", "geofenceLocationGroupName" from "Vehicle" where "orgId"=?`, {
         replacements: [orgId],
@@ -438,7 +438,7 @@ export const fetchVehiclesAndGeoByOrganization = async (orgId: any) => {
 export const fetchVehiclesAndGeoCountByOrganization = async (orgId: any) => {
 
     /*
-    select vehicleNumber from vehicle where organization='bmc';
+    select vehicleNumber from vehicle where organization='abc';
     */
     const [results, fields] = await sequelize.query(`SELECT "Vehicle"."vehicleNumber", 
         "Vehicle"."geofenceLocationGroupName", 

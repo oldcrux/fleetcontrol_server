@@ -523,7 +523,7 @@ export const fetchTodaysMileage = async (vehicleNumbers: string) => {
 export const fetchLatestGeofenceReportNameOfOrg = async (orgId: string) => {
     logDebug(`VehicleTelemetryDataController:fetchLatestGeofenceReportNameOfOrg: Entering with orgId ${orgId} `);
     let latestReportName: any[] = [];
-    // select reportName from geofence_telemetry_report where organization='bmc' limit -1;
+    // select reportName from geofence_telemetry_report where organization='abc' limit -1;
     const query = `SELECT reportName,
                         from ${geofenceTelemetryReportTable} 
                             where orgId='${orgId}' limit -1 `;
@@ -1400,7 +1400,7 @@ export const createGeofenceTelemetryReport = async (req: Request, res: Response)
                 insert into VehicleTelemetryReport
                     (reportName, vehicleNumber, geofenceLocationGroupName, geofenceLocationTag, touchedLocation, violationsRecorded, timeSpent)
                     values
-                    ('bmcReport_001', 'OD021111', 'satyaNagar1', 'tag1', true, false, 5)
+                    ('abcReport_001', 'OD021111', 'satyaNagar1', 'tag1', true, false, 5)
 
     
     1.select vehicleNumber, geofenceLocationGroupName from Vehicle where organization=?
