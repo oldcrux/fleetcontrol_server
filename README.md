@@ -3,7 +3,7 @@
 ## Introduction
 This is a highly scalable production grade, saas ready fleet control reporting and dashboard backend component. This can be used along with the frontend component [(github link)](https://github.com/oldcrux/fleetcontrol_app) for a full application experience.
 
-This application can be connected to a fleet of vehicles via tcp connection and can receive data as frequently as 10 sec.  There is a rate limiter implemented and configurable via an application parameter, in case you want to turn on/off or manage the frequency of tcp data inflow.
+This application can be connected to a fleet of vehicles telematics device via tcp connection and can receive data as frequently as 10 sec.  There is a rate limiter implemented and configurable via an application parameter, in case you want to turn on/off or manage the frequency of tcp data inflow.
 
 ## Architecture diagram
 👉🏻 [Architecture diagram]
