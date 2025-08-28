@@ -1,7 +1,7 @@
 ![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
 
 ## Introduction
-This is a highly scalable production grade, saas ready fleet control reporting and dashboard backend application. This can be used along with the frontend application [(github link)](https://github.com/oldcrux/nodeapp) for a full application experience.
+This is a highly scalable production grade, saas ready fleet control reporting and dashboard backend component. This can be used along with the frontend component [(github link)](https://github.com/oldcrux/fleetcontrol_app) for a full application experience.
 
 This application can be connected to a fleet of vehicles via tcp connection and can receive data as frequently as 10 sec.  There is a rate limiter implemented and configurable via an application parameter, in case you want to turn on/off or manage the frequency of tcp data inflow.
 
