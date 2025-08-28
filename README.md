@@ -6,7 +6,9 @@ This is a highly scalable production grade, saas ready fleet control reporting a
 This application can be connected to a fleet of vehicles via tcp connection and can receive data as frequently as 10 sec.  There is a rate limiter implemented and configurable via an application parameter, in case you want to turn on/off or manage the frequency of tcp data inflow.
 
 ## Architecture diagram
-👉🏻 [Architecture diagram](docs/architecture.png)
+👉🏻 [Architecture diagram]
+
+<img width="1042" alt="architecture" src="docs/architecture.png" />
 
 👉🏻 For detailed load testing and resource utilization, see the [Performance Report](docs/Performance.md).
 
@@ -35,7 +37,7 @@ This application can be connected to a fleet of vehicles via tcp connection and 
 8. Vehicle arrival window - A configurable time window, lets say 15mins to determine whether a vehicle has arrived an assigned location or not.
 7. Email reports in xls format.
 
-Note - this application is tested with a iTriangleTS101 device.  For other devices, separate parsers can be written.
+Note - this application is tested with a iTriangleTS101 telematics device.  For other devices, separate parsers can be written.
 
 ## Technical Features
 1. Uses questdb for device telemetry data storage and postgresql for long persistent data.
@@ -133,6 +135,7 @@ export GEOFENCE_SCHEDULE_ARRIVAL_WINDOW=30 # in minutes.  Because of the between
 Execute below command to start the application in local - 
 
 ```
+npm install
 npm run dev
 ```
 
